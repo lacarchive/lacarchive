@@ -1,0 +1,19 @@
+<?php
+
+/**
+ *
+ * Fixes file size limit problem with filefield sources plupload. Allows for file sizes larger than max in php.ini
+ *
+ */
+/**
+ * Implements hook_field_widget_form_alter().
+ */
+function filefield_sources_plupload_override_field_widget_form_alter(&$element, &$form_state, $context) {
+  if (isset($element[0]['#field_file_item']) && $element[0]['#field_file_item'] == 'field_upload') {
+    // Remove the file size limit set in php.ini.
+    unset($element[0]['#upload_validators']['file_validate_size']);
+    // For some reason with the plupload file source we get a doubling of the
+    // description.
+    $element[0]['#description'] = '';
+  }
+}

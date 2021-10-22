@@ -1,0 +1,6 @@
+name = FileField Sources Plupload Override
+description = Fixes file size limit problem with filefield sources plupload
+dependencies[] = filefield_sources
+dependencies[] = plupload
+package = Fields
+core = 7.x

@@ -1,0 +1,12 @@
+name = Field Readonly
+description = Displays non-accessible fields in edit forms as read-only items.
+dependencies[] = entity
+package = Fields
+core = 7.x
+
+; Information added by Drupal.org packaging script on 2013-12-23
+version = "7.x-1.0"
+core = "7.x"
+project = "field_readonly"
+datestamp = "1387811605"
+

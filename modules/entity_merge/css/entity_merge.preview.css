@@ -1,0 +1,11 @@
+td.entity-merge-ui-use {
+  background-color: rgba(255,255,0,0.35);
+}
+
+td.entity-merge-ui-conflict {
+  color: #FF1111;
+}
+
+td.entity-merge-ui-match {
+  color: #01BB01;
+}

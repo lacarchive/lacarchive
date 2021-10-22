@@ -1,0 +1,587 @@
+<?php
+/**
+ * @file
+ * Allow uploading of files directly to AmazonS3 via the browser using CORS.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function amazons3_cors_menu() {
+  $items = array();
+  $items['ajax/amazons3_cors'] = array(
+    'title' => 'Sign S3 Request',
+    'page callback' => 'amazons3_cors_sign_request',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function amazons3_cors_element_info() {
+  $file_path = drupal_get_path('module', 'amazons3_cors');
+  $types['amazons3_cors_upload'] = array(
+    '#input' => TRUE,
+    '#process' => array('amazons3_cors_upload_process'),
+    '#value_callback' => 'amazons3_cors_upload_value',
+    '#element_validate' => array('amazons3_cors_upload_validate'),
+    '#pre_render' => array('file_managed_file_pre_render'),
+    '#theme' => 'amazons3_cors_upload',
+    '#theme_wrappers' => array('form_element'),
+    '#upload_validators' => array(),
+    // The S3 directory relative to the bucket root where files should be
+    // uploaded.
+    '#upload_location' => '',
+    '#size' => 22,
+    '#s3_acl' => 'private',
+    '#extended' => FALSE,
+    '#attached' => array(
+      'js' => array(
+        $file_path . '/amazons3_cors.js',
+        // We also add the file.module's JS which does things like client side
+        // validation for us!
+        drupal_get_path('module', 'file') . '/file.js',
+      ),
+      'library' => array(array('system', 'ui.progressbar')),
+    ),
+  );
+  return $types;
+}
+
+/**
+ * Implements hook_libraries_info_alter().
+ */
+function amazons3_cors_libraries_info_alter(&$libraries) {
+  // Include the s3browserupload.class.php file with the rest of the AWSSDK
+  // files. We need this in order to generate a signature for our CORS request.
+  $libraries['awssdk']['files']['php'][] = 'extensions/s3browserupload.class.php';
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function amazons3_cors_field_widget_info() {
+  return array(
+    'amazons3_cors' => array(
+      'label' => t('S3 CORS File Upload'),
+      'field types' => array('file'),
+      'settings' => array(
+        's3_acl' => 'private',
+      ),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function amazons3_cors_field_widget_settings_form($field, $instance) {
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+
+  if ($widget['type'] == 'amazons3_cors') {
+    $form = array();
+    // Allow administrators to choose ACL permissions for objects created in
+    // S3 via this upload widget.
+    $form['s3_acl'] = array(
+      '#type' => 'select',
+      '#title' => t('ACL'),
+      '#description' => t('In addition to whatever options you select here the object owner will always be granted full control of all objects. See the <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/ACLOverview.html">API documentation</a> for more information.'),
+      '#options' => _amazons3_cors_acl_options(),
+      '#default_value' => isset($settings['s3_acl']) ? $settings['s3_acl'] : '',
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function amazons3_cors_form_alter(&$form, $form_state, $form_id) {
+  // There is no clean way to alter the field settings form provided by another
+  // module so for now we do this.
+  // @link http://drupal.org/node/1308860
+  if (($form_id == 'field_ui_field_edit_form' && $form['#field']['type'] == 'file') || ($form_id == 'field_ui_field_settings_form' && $form['field']['type']['#value'] == 'file')) {
+    // Remove anyting other than S3 from the scheme options.
+    $form['field']['settings']['uri_scheme']['#options'] = array('s3' => t('Amazon S3'));
+
+    // Repurpose the file_directory field.
+    $form['instance']['settings']['file_directory']['#title'] = t('Object prefix');
+    $form['instance']['settings']['file_directory']['#description'] = t('Optional subdirectory within the S3 bucket where files will be stored. Do not include preceding or trailing slashes.');
+  }
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function amazons3_cors_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  // A lot of this is borrowed from file_field_widget_form().
+  $defaults = array(
+    'fid' => 0,
+    'display' => !empty($field['settings']['display_default']),
+    'description' => '',
+  );
+
+  // Load the items for form rebuilds from the field state as they might not be
+  // in $form_state['values'] because of validation limitations. Also, they are
+  // only passed in as $items when editing existing entities.
+  $field_state = field_form_get_state($element['#field_parents'], $field['field_name'], $langcode, $form_state);
+  if (isset($field_state['items'])) {
+    $items = $field_state['items'];
+  }
+
+  // Essentially we use the amazons3_cors_upload type, extended with some
+  // enhancements. Which, is an extension of the managed_file type.
+  $element_info = element_info('amazons3_cors_upload');
+  $element += array(
+    '#type' => 'amazons3_cors_upload',
+    '#upload_location' => file_field_widget_uri($field, $instance),
+    '#upload_validators' => file_field_widget_upload_validators($field, $instance),
+    '#value_callback' => 'amazons3_cors_field_widget_value',
+    '#process' => array_merge($element_info['#process'], array('file_field_widget_process')),
+    '#s3_acl' => $instance['widget']['settings']['s3_acl'],
+    //'#progress_indicator' => $instance['widget']['settings']['progress_indicator'],
+    // Allows this field to return an array instead of a single value.
+    '#extended' => TRUE,
+  );
+
+  if ($field['cardinality'] == 1) {
+    // Set the default value.
+    $element['#default_value'] = !empty($items) ? $items[0] : $defaults;
+    // If there's only one field, return it as delta 0.
+    if (empty($element['#default_value']['fid'])) {
+      $element['#description'] = theme('file_upload_help', array('description' => $element['#description'], 'upload_validators' => $element['#upload_validators']));
+    }
+    $elements = array($element);
+  }
+  else {
+    // If there are multiple values, add an element for each existing one.
+    foreach ($items as $item) {
+      $elements[$delta] = $element;
+      $elements[$delta]['#default_value'] = $item;
+      $elements[$delta]['#weight'] = $delta;
+      $delta++;
+    }
+    // And then add one more empty row for new uploads except when this is a
+    // programmed form as it is not necessary.
+    if (($field['cardinality'] == FIELD_CARDINALITY_UNLIMITED || $delta < $field['cardinality']) && empty($form_state['programmed'])) {
+      $elements[$delta] = $element;
+      $elements[$delta]['#default_value'] = $defaults;
+      $elements[$delta]['#weight'] = $delta;
+      $elements[$delta]['#required'] = ($element['#required'] && $delta == 0);
+    }
+    // The group of elements all-together need some extra functionality
+    // after building up the full list (like draggable table rows).
+    $elements['#file_upload_delta'] = $delta;
+    $elements['#theme'] = 'file_widget_multiple';
+    $elements['#theme_wrappers'] = array('fieldset');
+    $elements['#process'] = array('file_field_widget_process_multiple');
+    $elements['#title'] = $element['#title'];
+    $elements['#description'] = $element['#description'];
+    $elements['#field_name'] = $element['#field_name'];
+    $elements['#language'] = $element['#language'];
+    $elements['#display_field'] = $field['settings']['display_field'];
+
+    // Add some properties that will eventually be added to the file upload
+    // field. These are added here so that they may be referenced easily through
+    // a hook_form_alter().
+    $elements['#file_upload_title'] = t('Add a new file');
+    $elements['#file_upload_description'] = theme('file_upload_help', array('description' => '', 'upload_validators' => $elements[0]['#upload_validators']));
+  }
+
+  return $elements;
+}
+
+/**
+ * Element process function for amazons3_cors_upload element.
+ *
+ * Expands the element to include Upload and Remove buttons, as well as support
+ * for a default value.
+ *
+ * In order to take advantage of the work that file.module is already doing for
+ * elements of type #managed_file we stick to the same naming convention here.
+ */
+function amazons3_cors_upload_process($element, &$form_state, &$form) {
+  $fid = isset($element['#value']['fid']) ? $element['#value']['fid'] : 0;
+  $element['#file'] = $fid ? file_load($fid) : FALSE;
+  $element['#tree'] = TRUE;
+
+  // AJAX settings used for upload and remove buttons.
+  $ajax_settings = array(
+    'callback' => 'amazons3_cors_upload_js',
+    'wrapper' => $element['#id'] . '-ajax-wrapper',
+    'method' => 'replace',
+    'effect' => 'fade',
+  );
+
+  // The "Upload" button.
+  $element['upload_button'] = array(
+    '#name' => implode('_', $element['#parents']) . '_upload_button',
+    '#type' => 'submit',
+    '#value' => t('Upload'),
+    '#validate' => array(),
+    '#limit_validation_errors' => array($element['#parents']),
+    '#attributes' => array('class' => array('cors-form-submit')),
+    '#weight' => -5,
+    '#submit' => array('amazons3_cors_upload_remove_submit'),
+    '#ajax' => $ajax_settings,
+  );
+
+  // The "Remove" button.
+  $element['remove_button'] = array(
+    '#name' => implode('_', $element['#parents']) . '_remove_button',
+    '#type' => 'submit',
+    '#value' => t('Remove'),
+    '#validate' => array(),
+    '#submit' => array('amazons3_cors_upload_remove_submit'),
+    '#limit_validation_errors' => array($element['#parents']),
+    '#weight' => -5,
+    '#ajax' => $ajax_settings,
+  );
+
+  // The file upload field itself.
+  $element['upload'] = array(
+    '#name' => 'files[' . implode('_', $element['#parents']) . ']',
+    '#type' => 'file',
+    '#title' => t('Choose a file'),
+    '#title_display' => 'invisible',
+    '#size' => $element['#size'],
+    '#theme_wrappers' => array(),
+    '#weight' => -10,
+    '#attributes' => array('class' => array('amazons3-cors-upload-file')),
+  );
+
+  // If the #upload_location is set we add a new key to the $form array that
+  // that stores this information in a way that is easier for us to lookup in
+  // the amazons3_cors_sign_request() function where we don't know the element's
+  // complete parentage. The data is stored as part of the $form array so we
+  // can retrieve it server side but ensure that it's never exposed client side
+  // since doing so would allow users to upload files to an arbitrary directory
+  // in the S3 bucket via local HTML modification.
+  if (isset($element['#upload_location'])) {
+    $form['#' . $element['upload_button']['#name'] . '_location'] = $element['#upload_location'];
+  }
+
+  // Do the same thing for ACL settings.
+  if (isset($element['#s3_acl'])) {
+    $form['#' . $element['upload_button']['#name'] . '_s3_acl'] = $element['#s3_acl'];
+  }
+
+  if ($fid && $element['#file']) {
+    $element['filelink'] = array(
+      '#type' => 'markup',
+      '#markup' => theme('file_link', array('file' => $element['#file'])) . ' ',
+      '#weight' => -10,
+    );
+  }
+
+  // Add the extension list to the page as JavaScript settings.
+  if (isset($element['#upload_validators']['file_validate_extensions'][0])) {
+    $extension_list = implode(',', array_filter(explode(' ', $element['#upload_validators']['file_validate_extensions'][0])));
+    $element['upload']['#attached']['js'] = array(
+      array(
+        'type' => 'setting',
+        'data' => array('file' => array('elements' => array('#' . $element['#id'] . '-upload' => $extension_list))),
+      ),
+    );
+  }
+
+  // The hidden elements get populated by javascript after uploading the file
+  // to S3 and are then used by the value callback to save the new file record
+  // to the db.
+  $element['fid'] = array(
+    '#type' => 'hidden',
+    '#value' => $fid,
+  );
+  $element['filename'] = array(
+    '#type' => 'hidden',
+    '#default_value' => isset($element['#file']->filename) ? $element['#file']->filename : '',
+    // This keeps theme_file_widget() happy.
+    '#markup' => '',
+  );
+  $element['filemime'] = array(
+    '#type' => 'hidden',
+    '#default_value' => isset($element['#file']->filemime) ? $element['#file']->filemime : '',
+  );
+  $element['filesize'] = array(
+    '#type' => 'hidden',
+    '#default_value' => isset($element['#file']->filesize) ? $element['#file']->filesize : '',
+  );
+
+  // Add a class to the <form> element so we can find it with JS later.
+  $form['#attributes'] = array('class' => array('amazons3-cors-upload-form'));
+
+  $element['#prefix'] = '<div id="' . $element['#id'] . '-ajax-wrapper">';
+  $element['#suffix'] = '</div>';
+
+  return $element;
+}
+
+/**
+ * Value callback for amazons3_cors_upload element type.
+ */
+function amazons3_cors_upload_value(&$element, $input = FALSE, $form_state = NULL) {
+  global $user;
+  $fid = 0;
+  $return = array();
+
+  $remove_button_clicked = FALSE;
+  if (isset($form_state['triggering_element']) && array_pop($form_state['triggering_element']['#parents']) == 'remove_button') {
+    $remove_button_clicked = TRUE;
+  }
+
+  // Find the current value of this field from the form state.
+  $form_state_fid = $form_state['values'];
+  foreach ($element['#parents'] as $parent) {
+    $form_state_fid = isset($form_state_fid[$parent]) ? $form_state_fid[$parent] : 0;
+  }
+
+  if ($element['#extended'] && isset($form_state_fid['fid'])) {
+    $fid = $form_state_fid['fid'];
+  }
+  elseif (is_numeric($form_state_fid)) {
+    $fid = $form_state_fid;
+  }
+
+  // Process any input and save new uploads.
+  if ($input !== FALSE && $fid == 0 && !empty($input['filename']) && empty($input['fid']) && !$remove_button_clicked) {
+    $return = $input;
+
+    // Construct a $file object.
+    $file = new stdClass();
+    $file->uid = $user->uid;
+    $file->filename = $input['filename'];
+    $file->filesize = $input['filesize'];
+    $file->filemime = $input['filemime'];
+    $base_dir = (!empty($element['#upload_location']) && $element['#upload_location'] != 's3://') ? str_replace('s3://', '', $element['#upload_location']) . '/' : '';
+    $file->uri = 's3://' . $base_dir . $file->filename;
+    $file->status = 0;
+    $file->timestamp = REQUEST_TIME;
+
+    // Save the uploaded file to the file_managed table.
+    if ($file = file_save($file)) {
+      $return['fid'] = $file->fid;
+    }
+    else {
+      // Check for #filefield_value_callback values.
+      // Because FAPI does not allow multiple #value_callback values like it
+      // does for #element_validate and #process, this fills the missing
+      // functionality to allow File fields to be extended through FAPI.
+      if (isset($element['#file_value_callbacks'])) {
+        foreach ($element['#file_value_callbacks'] as $callback) {
+          $callback($element, $input, $form_state);
+        }
+      }
+      // Load file if the FID has changed to confirm it exists.
+      if (isset($input['fid']) && $file = file_load($input['fid'])) {
+        $return['fid'] = $file->fid;
+      }
+    }
+  }
+
+  // If there is no input, set the default value.
+  else {
+    if ($element['#extended']) {
+      $default_fid = isset($element['#default_value']['fid']) ? $element['#default_value']['fid'] : 0;
+      $return = isset($element['#default_value']) ? $element['#default_value'] : array('fid' => 0);
+    }
+    else {
+      $default_fid = isset($element['#default_value']) ? $element['#default_value'] : 0;
+      $return = array('fid' => 0);
+    }
+
+    // Confirm that the file exists when used as a default value.
+    if ($default_fid && $file = file_load($default_fid)) {
+      $return['fid'] = $file->fid;
+    }
+    else {
+      $return['fid'] = $fid;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * The #value_callback for the amazons3_cors field element.
+ *
+ * This is pretty much a copy of file_field_widget_value() but modified to use
+ * the amazons3_cors_upload_value() function instead of the file.module one.
+ */
+function amazons3_cors_field_widget_value($element, $input = FALSE, $form_state) {
+  if ($input) {
+    // Checkboxes lose their value when empty.
+    // If the display field is present make sure its unchecked value is saved.
+    $field = field_widget_field($element, $form_state);
+    if (empty($input['display'])) {
+      $input['display'] = $field['settings']['display_field'] ? 0 : 1;
+    }
+  }
+
+  // Handle uploads and the like.
+  $return = amazons3_cors_upload_value($element, $input, $form_state);
+
+  // Ensure that all the required properties are returned even if empty.
+  $return += array(
+    'fid' => 0,
+    'display' => 1,
+    'description' => '',
+  );
+
+  return $return;
+}
+
+/**
+ * Validation callback for amazons3_cors element type.
+ */
+function amazons3_cors_upload_validate(&$element, &$form_state) {
+  // Consolidate the array value of this field to a single FID.
+  if (!$element['#extended']) {
+    form_set_value($element, $element['fid']['#value'], $form_state);
+  }
+}
+
+function amazons3_cors_upload_js($form, &$form_state) {
+  // Find the element that triggered the AJAX callback and return it so that it
+  // can be replaced.
+  $parents = $form_state['triggering_element']['#array_parents'];
+  $button_key = array_pop($parents);
+  $element = drupal_array_get_nested_value($form, $parents);
+  return $element;
+}
+
+/**
+ * Submit callback for the remove button on amazons3_cors elements.
+ */
+function amazons3_cors_upload_remove_submit($form, &$form_state) {
+  // Determine whether it was the upload or the remove button that was clicked,
+  // and set $element to the cors upload element that contains that button.
+  $parents = $form_state['triggering_element']['#array_parents'];
+  $button_key = array_pop($parents);
+  $element = drupal_array_get_nested_value($form, $parents);
+
+  // No action is needed here for the upload button, because all file uploads on
+  // the form are processed by amazons3_cors_upload_value() regardless of which
+  // button was clicked. Action is needed here for the remove button, because we
+  // only remove a file in response to its remove button being clicked.
+  if ($button_key == 'remove_button') {
+    // If it's a temporary file we can safely remove it immediately, otherwise
+    // it's up to the implementing module to clean up files that are in use.
+    if ($element['#file'] && $element['#file']->status == 0) {
+      file_delete($element['#file']);
+    }
+    // Update both $form_state['values'] and $form_state['input'] to reflect
+    // that the file has been removed, so that the form is rebuilt correctly.
+    // $form_state['values'] must be updated in case additional submit handlers
+    // run, and for form building functions that run during the rebuild, such as
+    // when the amazons3_cors_upload element is part of a field widget.
+    // $form_state['input'] must be updated so that amazons3_cors_upload_value()
+    // has correct information during the rebuild.
+    $values_element = $element['#extended'] ? $element['fid'] : $element;
+    form_set_value($values_element, NULL, $form_state);
+    drupal_array_set_nested_value($form_state['input'], $values_element['#parents'], NULL);
+  }
+
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * AJAX callback to create paramaters necessary for submitting a CORS request.
+ *
+ * Use the filename, filesize, and filemime properies in $_POST in conjunction
+ * with the AWS key/secret in order to create the required parameters for
+ * sending a file to S3 via a CORS request.
+ *
+ * The heavy lifting here is handled by the AWSSDK.
+ *
+ * @see amazons3_cors.js
+ */
+function amazons3_cors_sign_request() {
+  // Careful what you do with these. Who knows what kind of garbage someone may
+  // have POSTed to this callback. Gross!
+  $filename = $_POST['filename'];
+  $filesize = (int) $_POST['filesize'];
+  $filemime = $_POST['filemime'];
+  $triggering_element = $_POST['triggering_element'];
+
+  // Get the actual form from the form cache.
+  list($form, $form_state) = ajax_get_form();
+  drupal_process_form($form['#form_id'], $form, $form_state);
+
+  // Check for an upload location and make use of it.
+  $base_dir = '';
+  if (isset($form['#' . $triggering_element . '_location'])) {
+    $base_dir = str_replace('s3://', '', $form['#' . $triggering_element . '_location']);
+  }
+
+  $acl = isset($form['#' . $triggering_element . '_s3_acl']) ? $form['#' . $triggering_element . '_s3_acl'] : 'private';
+
+  if (!libraries_load('awssdk')) {
+    $error = t('Unable to load the AWS SDK. Please check you have installed the library correctly and configured your S3 credentials.');
+    // @todo: How do you send an ajax error?
+  }
+  else if (!class_exists('S3BrowserUpload')) {
+    $error = t('Cannot load AmazonS3 class. Please check the awssdk is installed correctly');
+  }
+
+  try {
+    $s3 = new S3BrowserUpload();
+    $bucket = variable_get('amazons3_bucket', '');
+
+    // Make sure we're not overwritting an existing file.
+    $directory = 's3://' . $base_dir . '/';
+    $filename = str_replace($directory, '', file_create_filename($filename, $directory));
+
+    $opts = array(
+      'key' => !empty($base_dir) ? $base_dir . '/' . $filename : $filename,
+      'Content-Type' => '^' . $filemime,
+      'acl' => $acl,
+    );
+
+    // @todo: make this configurable.
+    $expires = '+5 minutes';
+    $params = $s3->generate_upload_parameters($bucket, $expires, $opts);
+    $params['file_real'] = $filename;
+  }
+  catch(Exception $e) {
+    // Do something w/ errors.
+  }
+
+  drupal_add_http_header('Content-Type', 'application/json; charset=utf-8');
+  print json_encode($params);
+  exit;
+}
+
+/**
+ * Get an array of ACL options and human readable descriptions.
+ *
+ * More information about ACL options:
+ * http://docs.aws.amazon.com/AmazonS3/latest/dev/ACLOverview.html
+ *
+ * Also see the constants defined in s3.class.php.
+ *
+ * @return array
+ *   An array of possible ACL property values for use when creating a new
+ *   object in S3. ACL settings determine what permissions a new object should
+ *   have.
+ */
+function _amazons3_cors_acl_options() {
+  // Options are taken from here:
+  // http://docs.aws.amazon.com/AmazonS3/latest/dev/ACLOverview.html
+  return array(
+    'private' => t('No one else has access. (private)'),
+    'public-read' => t('All users get READ access. (public-read)'),
+    'public-read-write' => t('All users get READ & WRITE access. Not recommended. (public-read-write)'),
+    'authenticated-read' => t('Authenticated users get READ access. (authenticated-read)'),
+    'bucket-owner-read' => t('Bucket owner gets READ access. (bucket-owner-read)'),
+    'bucket-owner-full-control' => t('Bucket owner has full control. (bucket-owner-full-control)'),
+  );
+}

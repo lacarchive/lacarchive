@@ -1,0 +1,8 @@
+filename = "theowest_db_-2014-04-18T06-19-19"
+description = ""
+datestamp = "1397801971"
+generator = "Backup and Migrate (http://drupal.org/project/backup_migrate)"
+generatorversion = "7.x-2.x"
+sites[0][version] = "7.26"
+sites[0][name] = "Theo Westenberger"
+sites[0][url] = "http:///home/theowest/public_html/dev/"

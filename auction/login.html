@@ -1,0 +1,34 @@
+<html>
+	<head>
+		<title>LACA Benefit Auction 2016</title>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<script src="md5.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+		<script type="text/javascript">
+			function try_login() {
+
+				var hash = '66392116df34232d96cba809d36e105d';
+				var attempt = md5($('#password').val());
+
+				if (hash == attempt)
+				{
+					document.cookie = 'auction_admin=1';
+					$('#password_header').html('Success! You are now logged in.').fadeIn();
+				}
+				else 
+				{
+					$('#password_header').html('Password incorrect. Refresh and try again.').fadeIn();
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div id="logo"><img src="http://lacarchive.com/sites/default/files/images/laca-logo-large.png"></div>
+		<h1><a href="index.html" id="password_header">Enter Password:</a></h1>
+		<div id="box"><input id="password" type="password" style="margin: 3em;"> <a href="javascript: try_login();">Log in</a></div>
+		<div id="footers">
+			<p><a href="mailto:email@lacarchive.com">Contact</a></p>
+			<p><a href="http://lacarchive.com/about">About</a></p>
+		</div>
+	</body>
+</html>
