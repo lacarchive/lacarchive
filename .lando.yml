@@ -2,4 +2,7 @@ name: laca
 recipe: drupal7
 config:
   webroot: .
-  database: mariadb
+  database: mysql
+  services:
+    myservice:
+      type: mysql:5.7.24
