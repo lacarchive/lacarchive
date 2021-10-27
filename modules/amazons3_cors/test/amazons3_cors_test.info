@@ -1,0 +1,13 @@
+name = "Amazon S3 Cors Test"
+description = "Module for testing Amazon S3 CORS functionality."
+core = 7.x
+hidden = TRUE
+
+dependencies[] = amazons3_cors
+
+; Information added by drupal.org packaging script on 2013-09-30
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "amazons3_cors"
+datestamp = "1380553731"
+

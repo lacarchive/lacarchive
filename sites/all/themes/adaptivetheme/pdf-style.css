@@ -1,0 +1,23 @@
+.label {
+font-weight: bold;
+line-height: 2.5em;
+}
+
+.collection-logo img {
+width: auto;
+height: 25px;
+}
+
+ol, li {
+margin: 0 !important;
+padding: 0 !important;
+}
+
+ol {
+display: inline;
+list-style-type: none;
+}
+
+
+
+.ref-number {text-transform:uppercase;}

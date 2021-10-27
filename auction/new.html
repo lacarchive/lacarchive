@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<title>LACA Benefit Auction 2016</title>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<script type="text/javascript" src="items.json"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+		<script type="text/javascript">
+			function getParameterByName(name, url) {
+			    if (!url) {
+			      url = window.location.href;
+			    }
+			    name = name.replace(/[\[\]]/g, "\\$&");
+			    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+			        results = regex.exec(url);
+			    if (!results) return null;
+			    if (!results[2]) return '';
+			    return decodeURIComponent(results[2].replace(/\+/g, " "));
+			}
+			var id = getParameterByName('item');
+			var items = JSON.parse(items_data);
+			var element = items[id - 1];
+			var admin = 0;
+			console.log(document.cookie);
+			if(document.cookie.includes('auction_admin=1')) { admin = 1; console.log('is admin'); }
+		</script>
+	</head>
+	<body>
+		<div id="logo"><img src="http://lacarchive.com/sites/default/files/images/laca-logo-large.png"></div>
+		<h1><a href="index.html">Benefit Auction 2016</a></h1>
+		<div id="bid_form"></div>
+		<script type="text/javascript">
+
+			if (admin == 1) { 
+				var item_edit_form = '<div id="edit_item" class="admin"><form action="create.php" method="post">';
+				item_edit_form += '<input type="hidden" name="id" value="">';
+				item_edit_form += '<p>Title: <input type="text" name="title" value=""></p>';
+				item_edit_form += '<p>Artist: <input type="text" name="artist" value=""></p>';
+				item_edit_form += '<p>Year: <input type="text" name="year" value=""></p>';
+				item_edit_form += '<p>Medium: <input type="text" name="medium" value=""></p>';
+				item_edit_form += '<p>Dimensions: <input type="text" name="dimensions" value=""></p>';
+				item_edit_form += '<p>Value: <input type="text" name="price" value=""></p>';
+				item_edit_form += '<p>Opening Bid: <input type="text" name="opening_bid" value=""></p>';
+				item_edit_form += '<p><input type="submit" value="update"></p>';
+				item_edit_form += '</form></div>';
+
+				$('#bid_form').html(item_edit_form); 
+			}       
+		</script>
+		<div id="footers">
+			<p><a href="mailto:email@lacarchive.com">Contact</a></p>
+			<p><a href="http://lacarchive.com/about">About</a></p>
+		</div>
+	</body>
+</html>

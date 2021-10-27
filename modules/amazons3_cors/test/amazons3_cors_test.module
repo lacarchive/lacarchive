@@ -1,0 +1,46 @@
+<?php
+/**
+ * @file
+ * Code for testing amazons3_cors functionality.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function amazons3_cors_test_menu() {
+  $items = array();
+  $items['amazons3_cors_test'] = array(
+    'title' => 'Upload form',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amazons3_cors_test_upload_form'),
+    'access callback' => TRUE,
+  );
+  return $items;
+}
+
+function amazons3_cors_test_upload_form($form, &$form_state) {
+  $form['upload'] = array(
+    '#type' => 'amazons3_cors_upload',
+    '#title' => t('Upload test'),
+    '#upload_location' => 'demo',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save the form'),
+  );
+  return $form;
+}
+
+function amazons3_cors_test_upload_form_submit($form, &$form_state) {
+  // If fid is not 0 we have a valid file.
+  if ($form_state['values']['upload'] != 0) {
+    // The new file's status is set to 0 or temporary and in order to ensure
+    // that the file is not removed after 6 hours we need to change it's status
+    // to FILE_STATUS_PERMANENT.
+    $file = file_load($form_state['values']['upload']);
+    $file->status = FILE_STATUS_PERMANENT;
+    print_r($file); exit;
+    file_save($file);
+    file_usage_add($file, 'amazons3_cors_test', 'test_file', 1);
+  }
+}

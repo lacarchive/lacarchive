@@ -1,0 +1,40 @@
+<html>
+	<head>
+		<title>LACA Benefit Auction 2016</title>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<script type="text/javascript" src="items.json"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	</head>
+	<body>
+		<div id="logo"><img src="http://lacarchive.com/sites/default/files/images/laca-logo-large.png"></div>
+		<h1><a href="index.html">Benefit Auction 2016</a></h1>
+		<div id="items">	
+		</div>
+		<script type="text/javascript">
+			var items = JSON.parse(items_data);
+			var item_grid = '';
+			items.forEach(function(element) {
+				item_grid += '<div class="item">';
+				item_grid += '<p><img src="images/' + element.id + '.jpg"></p>';
+				if(element.artist) { item_grid += '<p><strong>' + element.artist + '</strong></p>'; }
+				if(element.title) { 
+					if (element.year) { item_grid += '<p><em>' + element.title + '</em>, ' + element.year + '</p>'; }
+					else { item_grid += '<p><em>' + element.title + '</em></p>'; }
+				}
+				else if(element.year) { item_grid += '<p>' + element.year + '</p>'; }
+				if(element.price) { item_grid += '<p>Value: ' + element.price + '</p>'; }
+				if(element.opening_bid) { item_grid += '<p>Opening Bid: ' + element.opening_bid + '</p>'; }
+				item_grid += '<p><a href="bid.html?item=' + element.id + '">BID OR BUY NOW</a></p>';
+				item_grid += '</div>';
+			});
+
+			document.getElementById("items").innerHTML = item_grid;
+		</script>
+
+		<div id="footers">
+			<p><a href="mailto:email@lacarchive.com">Contact</a></p>
+			<p><a href="http://lacarchive.com/auction/terms.html">Terms</a></p>
+			<p><a href="http://lacarchive.com/about">About</a></p>
+		</div>
+	</body>
+</html>

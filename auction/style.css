@@ -1,0 +1,113 @@
+html {
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	font-size: 12px;
+	font-family: Arial, Helvetica, Sans-serif;
+	padding: 1vw;
+}
+
+#items {
+	width: 100%;
+	display: inline-block;
+}
+
+.item {
+	width: 20vw;
+	padding: 2vw;
+	font-size: 12px;
+	display: inline-block;
+	vertical-align: top;
+}
+
+.bid_item {
+
+	width: 20vw;
+	padding: 2vw;
+	font-size: 12px;
+	display: table-cell;
+	vertical-align: top;
+}
+
+.admin {
+
+	background-color: #afa;
+	padding: 3em;
+}
+
+.bid_item img, .item img {
+
+	max-width: 100%;
+}
+
+a {
+	color: black;
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+#logo {
+	text-align: center;
+	width: 100%;
+	padding-top: 2.8em;
+	padding-bottom: 1em;
+}
+
+#logo img {
+
+	width: 175px;
+}
+
+#footers {
+
+	width: 100%;
+	text-align: center;
+	bottom: 0px;
+	padding-top: 3em;
+	padding-bottom: 1em;
+}
+
+#footers p {
+
+	display: inline-block;
+	padding: 0 2em;
+}
+
+#box {
+
+	margin: 0 auto;
+	display: table;
+}
+
+#bid_form {
+
+	display: table-cell;
+	padding: 6em;
+	vertical-align: middle;
+}
+
+#terms {
+
+	width: 50vw;
+	font-size: 18px;
+	line-height: 1.2em;
+	margin: 0 auto;
+}
+input {
+
+	padding: .5em;
+}
+
+h1 {
+
+	text-align: center;
+	margin: 0;
+	padding: 1em;
+	font-weight: normal;
+	font-size: 12px;
+}

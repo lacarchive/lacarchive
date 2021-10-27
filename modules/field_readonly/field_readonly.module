@@ -1,0 +1,46 @@
+<?php
+
+/**
+ * @file
+ * Written by Henri MEDOT <henri.medot[AT]absyx[DOT]fr>
+ * http://www.absyx.fr
+ */
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function field_readonly_entity_info_alter(&$entity_info) {
+  // Add the field_readonly view mode.
+  foreach (array_keys($entity_info) as $entity_type) {
+    $entity_info[$entity_type]['view modes']['field_readonly'] = array(
+      'label' => t('Field Readonly'),
+      'custom settings' => FALSE,
+    );
+  }
+}
+
+/**
+ * Implements hook_field_attach_form().
+ */
+function field_readonly_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
+  // Display non-accessible fields as read-only items.
+  $entity_id = entity_id($entity_type, $entity);
+  if ($entity_id && entity_access('view', $entity_type, $entity)) {
+    $build = entity_view($entity_type, array($entity), 'field_readonly');
+    $build = $build[$entity_type][$entity_id];
+
+    foreach (element_children($form) as $key) {
+      if (substr($key, 0, 6) == 'field_') {
+        $element = $form[$key];
+        if (isset($element['#access']) && !$element['#access'] && isset($build[$key])) {
+          $form['_field_readonly__' .$key] = array_merge($build[$key], array('#weight' => $element['#weight']));
+          $attach_css = TRUE;
+        }
+      }
+    }
+
+    if (!empty($attach_css)) {
+      $form['#attached']['css'][] = drupal_get_path('module', 'field_readonly') .'/field_readonly.css';
+    }
+  }
+}

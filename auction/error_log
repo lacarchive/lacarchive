@@ -1,0 +1,46 @@
+[24-Nov-2016 11:28:04 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:28:05 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:28:52 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:28:54 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:29:04 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:30:08 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:30:22 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:30:36 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:43:17 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:43:32 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 11:43:56 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 11:44:01 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 11:46:58 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 15:12:55 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:13:18 America/Denver] PHP Parse error:  syntax error, unexpected '$items' (T_VARIABLE), expecting '(' in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 26
+[24-Nov-2016 15:13:39 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:13:40 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:14:04 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:14:43 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:15:21 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:15:37 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:15:37 America/Denver] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/kebokfou/public_html/lacarchive/auction/delete.php:27) in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 29
+[24-Nov-2016 15:15:40 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:15:40 America/Denver] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/kebokfou/public_html/lacarchive/auction/delete.php:27) in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 29
+[24-Nov-2016 15:15:50 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 15:15:50 America/Denver] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/kebokfou/public_html/lacarchive/auction/delete.php:27) in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 29
+[24-Nov-2016 15:16:27 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 16:28:24 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 16:28:27 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 16:28:33 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 16:29:02 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/update.php on line 17
+[24-Nov-2016 17:18:00 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/create.php on line 19
+[24-Nov-2016 17:18:39 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 17:18:44 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 17:19:09 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 17:19:11 America/Denver] PHP Fatal error:  Cannot use object of type stdClass as array in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 23
+[24-Nov-2016 17:21:56 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 21:22:09 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/create.php on line 21
+[24-Nov-2016 21:23:57 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 22:02:29 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/update.php on line 19
+[24-Nov-2016 22:03:04 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[24-Nov-2016 22:03:40 America/Denver] PHP Warning:  usort() expects parameter 1 to be array, object given in /home/kebokfou/public_html/lacarchive/auction/delete.php on line 25
+[25-Nov-2016 08:58:50 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/update.php on line 30
+[25-Nov-2016 08:58:58 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/update.php on line 30
+[25-Nov-2016 20:31:26 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/update.php on line 30
+[26-Nov-2016 16:56:26 America/Denver] PHP Warning:  json_encode(): Invalid UTF-8 sequence in argument in /home/kebokfou/public_html/lacarchive/auction/update.php on line 30
