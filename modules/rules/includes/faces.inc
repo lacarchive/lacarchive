@@ -118,6 +118,10 @@ if (!class_exists('FacesExtendable', FALSE)) {
           self::load_include($this->facesIncludes[$name]);
           $this->facesIncludes[$name] = NULL;
         }
+        elseif (isset($this->facesIncludes['execute'])) {
+          self::load_include($this->facesIncludes['execute']);
+          $this->facesIncludes['execute'] = NULL;
+        }
         if (isset($method[0])) {
           // We always pass the object reference and the name of the method.
           $arguments[] = $this;
@@ -224,6 +228,7 @@ if (!class_exists('FacesExtendable', FALSE)) {
      *   describe a single file.
      */
     public function extend($interface, array $callbacks = array(), array $includes = array()) {
+      $interface = class_exists($interface) ? $interface : FALSE;
       $face_methods = $interface ? get_class_methods($interface) : array_keys($callbacks);
       if ($interface) {
         if (array_diff($face_methods, array_keys($callbacks))) {

@@ -26,23 +26,25 @@ function views_sort_null_field_field_views_data_alter(&$result, $field, $module)
   // Build up an array of the labels we need for the bundles this field is on,
   // and also check the instances to see if they are all set to 'required'.
   $bundles_names = array();
-  $required = TRUE;
+  $all_required = TRUE;
   foreach ($field['bundles'] as $entity_type => $bundles) {
     foreach ($bundles as $bundle_name) {
       $bundles_names[] = t('@entity:@bundle', array('@entity' => $entity_type, '@bundle' => $bundle_name));
     }
-
-    // Determine whether this instance is set to 'required', and keep track of
-    // whether they all are. $required is initialized to TRUE, so if after
-    // ANDing with the required setting of each instance, it is still TRUE, then
-    // all instances are set to 'required'.
-    $instance = field_info_instance($entity_type, $field['field_name'], $bundle_name);
-    $required &= $instance['required'];
+    if ($all_required) {
+      // Determine whether this instance is set to 'required'.
+      $instance = field_info_instance($entity_type, $field['field_name'], $bundle_name);
+      if (!isset($instance['required']) || !$instance['required']) {
+        // This instance is not 'required', so they are not all 'required', and
+        // no more instance checking is needed.
+        $all_required = FALSE;
+      }
+    }
   }
 
   // If all instances are required, this sort is pointless, as no field value
   // will be empty. Bail.
-  if ($required) {
+  if ($all_required) {
     return;
   }
 

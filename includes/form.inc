@@ -555,8 +555,10 @@ function form_get_cache($form_build_id, &$form_state) {
  * Stores a form in the cache.
  */
 function form_set_cache($form_build_id, $form, $form_state) {
-  // 6 hours cache life time for forms should be plenty.
-  $expire = 21600;
+  // The default cache_form expiration is 6 hours. On busy sites, the cache_form
+  // table can become very large. A shorter cache lifetime can help to keep the
+  // table's size under control.
+  $expire = variable_get('form_cache_expiration', 21600);
 
   // Ensure that the form build_id embedded in the form structure is the same as
   // the one passed in as a parameter. This is an additional safety measure to
@@ -1134,7 +1136,7 @@ function drupal_prepare_form($form_id, &$form, &$form_state) {
  */
 function _drupal_invalid_token_set_form_error() {
   // Setting this error will cause the form to fail validation.
-  form_set_error('form_token', t('The form has become outdated. Copy any unsaved work in the form below and then reload this page.'));
+  form_set_error('form_token', t('The form has become outdated. Press the back button, copy any unsaved work in the form, and then reload the page.'));
 }
 
 /**
@@ -1359,7 +1361,10 @@ function _form_validate(&$elements, &$form_state, $form_id = NULL) {
     // The following errors are always shown.
     if (isset($elements['#needs_validation'])) {
       // Verify that the value is not longer than #maxlength.
-      if (isset($elements['#maxlength']) && drupal_strlen($elements['#value']) > $elements['#maxlength']) {
+      if (isset($elements['#maxlength']) && (isset($elements['#value']) && !is_scalar($elements['#value']))) {
+        form_error($elements, $t('An illegal value has been detected. Please contact the site administrator.'));
+      }
+      elseif (isset($elements['#maxlength']) && drupal_strlen($elements['#value']) > $elements['#maxlength']) {
         form_error($elements, $t('!name cannot be longer than %max characters but is currently %length characters long.', array('!name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title'], '%max' => $elements['#maxlength'], '%length' => drupal_strlen($elements['#value']))));
       }
 
@@ -1439,10 +1444,12 @@ function _form_validate(&$elements, &$form_state, $form_id = NULL) {
       // length if it's a string, and the item count if it's an array.
       // An unchecked checkbox has a #value of integer 0, different than string
       // '0', which could be a valid value.
-      $is_empty_multiple = (!count($elements['#value']));
+      $is_countable = is_array($elements['#value']) || $elements['#value'] instanceof Countable;
+      $is_empty_multiple = $is_countable && count($elements['#value']) == 0;
       $is_empty_string = (is_string($elements['#value']) && drupal_strlen(trim($elements['#value'])) == 0);
       $is_empty_value = ($elements['#value'] === 0);
-      if ($is_empty_multiple || $is_empty_string || $is_empty_value) {
+      $is_empty_null = is_null($elements['#value']);
+      if ($is_empty_multiple || $is_empty_string || $is_empty_value || $is_empty_null) {
         // Although discouraged, a #title is not mandatory for form elements. In
         // case there is no #title, we cannot set a form error message.
         // Instead of setting no #title, form constructors are encouraged to set
@@ -3917,6 +3924,11 @@ function theme_button($variables) {
   $element['#attributes']['type'] = 'submit';
   element_set_attributes($element, array('id', 'name', 'value'));
 
+  // Remove name attribute, if empty, for W3C compliance.
+  if (isset($element['#attributes']['name']) && $element['#attributes']['name'] === '') {
+    unset($element['#attributes']['name']);
+  }
+
   $element['#attributes']['class'][] = 'form-' . $element['#button_type'];
   if (!empty($element['#attributes']['disabled'])) {
     $element['#attributes']['class'][] = 'form-button-disabled';
@@ -4120,8 +4132,16 @@ function form_process_weight($element) {
   $max_elements = variable_get('drupal_weight_select_max', DRUPAL_WEIGHT_SELECT_MAX);
   if ($element['#delta'] <= $max_elements) {
     $element['#type'] = 'select';
+    $weights = array();
     for ($n = (-1 * $element['#delta']); $n <= $element['#delta']; $n++) {
       $weights[$n] = $n;
+    }
+    if (isset($element['#default_value'])) {
+      $default_value = (int) $element['#default_value'];
+      if (!isset($weights[$default_value])) {
+        $weights[$default_value] = $default_value;
+        ksort($weights);
+      }
     }
     $element['#options'] = $weights;
     $element += element_info('select');
