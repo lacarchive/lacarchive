@@ -1,5 +1,0 @@
-name: laca
-recipe: drupal7
-config:
-  webroot: .
-  database: mariadb
