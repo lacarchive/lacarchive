@@ -1,0 +1,7 @@
+name: lacarchive
+recipe: drupal7
+config:
+  webroot: .
+  php: '7.4'
+  database: mariadb
+  drush: "*"
