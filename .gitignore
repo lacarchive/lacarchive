@@ -6,6 +6,6 @@
 /sites/*/*settings*.php
 
 # Ignore paths that may contain user-generated content
-/sites/default/files
+# /sites/default/files
 
 .DS_Store
