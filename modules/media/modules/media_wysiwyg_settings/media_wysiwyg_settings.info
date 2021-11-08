@@ -14,7 +14,7 @@ features[wysiwyg][] = filtered_html
 features[wysiwyg][] = full_html
 
 ; Information added by Drupal.org packaging script on 2021-04-09
-version = "7.x-2.27"
+version = "7.x-4.2"
 core = "7.x"
 project = "media"
-datestamp = "1617993403"
+datestamp = "1617993789"
