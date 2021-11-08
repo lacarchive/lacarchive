@@ -9,3 +9,4 @@
 # /sites/default/files
 
 .DS_Store
+*.sql
