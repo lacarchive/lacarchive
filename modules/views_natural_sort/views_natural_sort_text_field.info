@@ -1,0 +1,14 @@
+name = Views Natural Sort Text Field Support
+description = Sort results naturally on a text field skipping articles like "the" and "a."
+dependencies[] = views_natural_sort
+package = Views
+core = 7.x
+
+; Views handlers
+files[] = handlers/views_natural_sort_handler_sort_text_field.inc
+
+; Information added by Drupal.org packaging script on 2021-10-29
+version = "7.x-2.7"
+core = "7.x"
+project = "views_natural_sort"
+datestamp = "1635542131"

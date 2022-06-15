@@ -1,12 +1,17 @@
 name = Views Natural Sort
-description = Sort results naturaly on a text field skipping articles like "the" and "a." 
+description = Sort results naturally on a node's title skipping articles like "the" and "a."
 dependencies[] = views
+dependencies[] = entity
+
 package = Views
 core = 7.x
 
-; Information added by drupal.org packaging script on 2012-12-24
-version = "7.x-1.4"
+; Views handlers
+files[] = handlers/views_natural_sort_handler_sort.inc
+files[] = views_natural_sort.test
+
+; Information added by Drupal.org packaging script on 2021-10-29
+version = "7.x-2.7"
 core = "7.x"
 project = "views_natural_sort"
-datestamp = "1356358487"
-
+datestamp = "1635542131"
