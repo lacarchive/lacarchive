@@ -1,0 +1,14 @@
+.dfm-filefield-button {
+  display: none !important;
+}
+.dfm-filefield-link {
+  display: inline-block;
+}
+.dfm-filefield-link:before {
+  content: '';
+  float: left;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  background: url(dfm_filefield.png) no-repeat 50% 50%;
+}

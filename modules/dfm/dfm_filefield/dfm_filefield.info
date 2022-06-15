@@ -1,0 +1,11 @@
+name = "Drupella FM for File Field"
+description = "Allows users to select files from Drupella File Manager for file fields."
+dependencies[] = "file"
+dependencies[] = "dfm"
+core = "7.x"
+package = "File manager"
+; Information added by Drupal.org packaging script on 2021-06-09
+version = "7.x-3.5"
+core = "7.x"
+project = "dfm"
+datestamp = "1623229748"

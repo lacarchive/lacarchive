@@ -1,0 +1,120 @@
+7.x-3.4
+
+* Removed flash upload support
+
+
+7.x-3.3
+
+* Added ability to fix file urls in body fields on file rename/move.
+
+
+7.x-3.2
+
+* Allowed SVG files to be used as image source in wysiwyg integrations.
+* Added API documentation.
+
+
+7.x-3.1
+
+* Fixed #file_value_callbacks defined by element_info not being added to the element if it already has dynamically defined ones.
+* Added site and date tokens to the token tree in profile form.
+* Added SQLite compatibility to directory moving/renaming.
+* Thumbnail feature no longer depends on image_allow_insecure_derivatives flag.
+* Fixed regression that caused syntax error in older PHP versions(5.3)
+* Added php5 to the executable extensions list.
+
+7.x-3.0
+
+* Made filefield integration similar to D8.
+* Removed the menu path and used relative file paths to identify selected files.
+* Added dfm_check_file_paths() to check access by relative paths.
+* Made ckeditor link button use selected text/html for the first link.
+* Removed general private file serving.
+* Introduced file access checking by available config.
+* Support appending thumbUrlQuery to thumbnail urls.
+* Allow returning an absolute url by "absurl=1" parameter in urlFieldId integration.
+
+7.x-2.10
+
+* Added hook_dfm_conf_alter(&$conf, $user)
+
+
+7.x-2.9
+
+* Fixed undefined static error in PHP7
+* Optimized Dfm::basename()
+
+7.x-2.8
+
+* Implemented hook_requirements() to add a warning about anon/auth administrative access.
+* Set initial directory for file fields.
+* Fixed search icon position on small screens.
+* Set empty folder text.
+* Store the activedir cookie for the browser session only.
+* Added fallbackDir option similar to initActiveDir but with a lower precedence than the cookie dfmLAD
+
+
+7.x-2.7
+
+* Made imgExtensions configurable.
+* S3 users can now disable image handling.
+* Implemented item taphold for multiple selection.
+* Added jpeg as an image extension.
+
+7.x-2.6
+
+* Support device-width viewport.
+* Made image resizing mobile compatible.
+* Made crop UI mobile compatible.
+* Made UP button go to last opened dir in tree when search is on.
+* Skip displaying hover popup on simulated mouseover on touch devices.
+* Set a better position for cursor popup during touch drag.
+* Skip item selecting on touchstart to favor scrolling over drag&drop.
+* Skip body area resizing on mobile keyboard display.
+* Added layout switcher.
+* Make use of new drag drop api.
+* Prevent the default on drag to fix IE8 performing the default dragstart action.
+
+
+7.x-2.5
+
+* Introduced "All permissions" checkbox.
+* Redesigned the permissions form.
+* Added core download permissions.
+* Removed dfm_dl.
+* Introduced dfm_perm_info()
+* Set custom realpath function.
+* Implemented drag resizing for resize widget.
+* Made image copy option available if the folder has copyFiles permission.
+* ZipArchive::addFile can not add scheme files. Use custom realpath function if set.
+* Implemented download.
+* Set default value of uploadMaxSize to 2MB
+* Allow uploadMaxSize to be a file size string like '2M'
+* Set png, jpg, and gif as default image extensions.
+
+
+7.x-2.4
+
+* Added ability to merge folders from multiple profiles.
+* Skip adding "accept" attribute to file input if all extensions are allowed.
+
+
+7.x-2.3
+
+* Added the missing move_dirpath hook which renames records if dirpath is not overwritten.
+* Added ability to define hooks as 'Class::Method'
+
+
+7.x-2.2
+
+* [Security] Fixed xss in file extension.
+* Added standalone usage info.
+* Fixed file field id regression in D7.36
+
+
+7.x-2.1
+
+* Added a note for Amazon S3 users
+* Added a note about DFM URL for Drupal installations under a subpath.
+* Fixed incorrect root directory URL for Drupal installations under a subpath.
+* Made extension validation case insensitive.

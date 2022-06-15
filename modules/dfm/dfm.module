@@ -1,0 +1,239 @@
+<?php
+
+/**
+ * @file
+ * Implements Drupal hooks.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function dfm_menu() {
+  dfm_inc('menu');
+  return _dfm_menu();
+}
+
+/**
+ * Implements hook_permission().
+ */
+function dfm_permission() {
+  return array('administer Drupella FM' => array('title' => t('Administer Drupella FM'), 'restrict access' => TRUE));
+}
+
+/**
+ * Implements hook_theme().
+ */
+function dfm_theme() {
+  dfm_inc('theme');
+  return _dfm_theme();
+}
+
+/**
+ * Implements hook_init().
+ */
+function dfm_init() {
+  // Allow image derivatives temporarily.
+  $key = 'image_allow_insecure_derivatives';
+  if (isset($_GET['dfm_itok']) && empty($GLOBALS['conf'][$key]) && $pos = strpos($_GET['q'], '/styles/')) {
+    $args = explode('/', substr($_GET['q'], $pos + 8));
+    if ($_GET['dfm_itok'] === dfm_itok($args[0])) {
+      $GLOBALS['conf'][$key] = TRUE;
+    }
+  }
+}
+
+/**
+ * Returns image token for thumbnail styles.
+ */
+function dfm_itok($style) {
+  return substr(md5(md5($style . ':' . $GLOBALS['user']->uid . ':' . variable_get('drupal_private_key', 0))), 8, 8);
+}
+
+/**
+ * Implements hook_file_download().
+ */
+function dfm_file_download($uri) {
+  dfm_inc('page');
+  if (dfm_check_file_uri($uri)) {
+    return array(
+      'Content-type' => file_get_mimetype($uri),
+      'Content-Length' => filesize($uri),
+    );
+  }
+}
+
+/**
+ * Implements hook_file_insert().
+ */
+function dfm_file_insert($file) {
+  return !empty($file->fid) && !empty($file->dfm) && dfm_claim_file($file);
+}
+
+/**
+ * Register a file as dfm file.
+ */
+function dfm_claim_file($file, $check = FALSE) {
+  if (!$check || !db_query("SELECT count FROM {file_usage} WHERE module = 'dfm' AND fid = :fid", array(':fid' => $file->fid))->fetchField()) {
+    file_usage_add($file, 'dfm', 'file', $file->fid);
+  }
+}
+
+/**
+ * Implements hook_flush_caches().
+ */
+function dfm_flush_caches() {
+   file_scan_directory('public://js', '/^dfm\./', array('callback' => 'file_unmanaged_delete', 'recurse' => 0));
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function dfm_element_info() {
+  return array('textarea' => array('#process' => array('dfm_textarea_proc')));
+}
+
+/**
+ * Processes a textarea.
+ * Enables ckeditor and inline textarea integration.
+ */
+function dfm_textarea_proc($element) {
+  static $skip;
+  if (!isset($skip)) {
+    $skip = !dfm_access() || !module_exists('ckeditor') && !variable_get('dfm_textareas', '');
+  }
+  if ($skip) {
+    return $element;
+  }
+  dfm_inc('wysiwyg');
+  return _dfm_textarea_proc($element);
+}
+
+/**
+ * Implements hook_wysiwyg_plugin().
+ */
+function dfm_wysiwyg_plugin($editor, $version) {
+  dfm_inc('wysiwyg');
+  return _dfm_wysiwyg_plugin($editor, $version);
+}
+
+/**
+ * Implements hook_wysiwyg_editor_settings_alter().
+ */
+function dfm_wysiwyg_editor_settings_alter(&$settings, $context) {
+  dfm_inc('wysiwyg');
+  return _dfm_wysiwyg_editor_settings_alter($settings, $context);
+}
+
+/**
+ * Implements hook_ckeditor_plugin().
+ */
+function dfm_ckeditor_plugin() {
+  dfm_inc('wysiwyg');
+  return _dfm_ckeditor_plugin();
+}
+
+/**
+ * Adds the js file and settings for wysiwyg integration.
+ */
+function dfm_wysiwyg_integrate() {
+  static $done;
+  if (!isset($done) && $done = dfm_access()) {
+    $path = drupal_get_path('module', 'dfm');
+    drupal_add_js($path . '/dfm.wysiwyg.js');
+    drupal_add_js(array('dfmUrl' => url('dfm')), 'setting');
+  }
+  return $done;
+}
+
+/**
+ * Checks if the user has access to dfm.
+ */
+function dfm_access($user = NULL, $scheme = NULL) {
+  return (bool) dfm_user_profile($user, $scheme);
+}
+
+/**
+ * Returns configuration profile for the user.
+ */
+function dfm_user_profile($user = NULL, $scheme = NULL) {
+  static $profiles = array();
+  if (!isset($user)) global $user;
+  if (!isset($scheme) || $scheme === '') $scheme = file_default_scheme();
+  $uid = $user->uid;
+  if (!isset($profiles[$scheme][$uid])) {
+    $profile = FALSE;
+    if ($uid == 1) {
+      $profile = dfm_load_profile(1);
+    }
+    else {
+      $sw = dfm_swrps();
+      if (isset($sw[$scheme])) {
+        $key = $scheme . '_pid';
+        foreach (variable_get('dfm_roles_profiles', array()) as $rid => $conf) {
+          if (isset($user->roles[$rid]) && !empty($conf[$key]) && $profile = dfm_load_profile($conf[$key])) {
+            break;
+          }
+        }
+      }
+    }
+    // Set uid and scheme as they might be different than the defaults
+    if ($profiles[$scheme][$uid] = $profile) {
+      $profile->uid = $uid;
+      $profile->scheme = $scheme;
+    }
+  }
+  return $profiles[$scheme][$uid];
+}
+
+/**
+ * Returns visible stream wrappers.
+ */
+function dfm_swrps($defaultfirst = FALSE) {
+  $sw = file_get_stream_wrappers(STREAM_WRAPPERS_VISIBLE);
+  // Make the default scheme appear first.
+  if ($defaultfirst) {
+    $dscheme = file_default_scheme();
+    $dsw = $sw[$dscheme];
+    $sw = array($dscheme => $dsw) + $sw;
+  }
+  return $sw;
+}
+
+/**
+ * Loads a profile by id.
+ */
+function dfm_load_profile($pid) {
+  if ($pid && $profile = db_query('SELECT * FROM {dfm_profiles} WHERE pid = :pid', array(':pid' => $pid))->fetchObject()) {
+    $profile->conf = unserialize($profile->conf);
+    return $profile;
+  }
+  return FALSE;
+}
+
+/**
+ * Returns DFM script path.
+ */
+function dfm_script_path($subpath = NULL) {
+  static $libpath;
+  if (!isset($libpath)) {
+    $libpath = drupal_get_path('module', 'dfm') . '/library';
+    if (!file_exists($libpath)) {
+      $libpath = 'sites/all/libraries/dfm_lite';
+    }
+  }
+  return isset($subpath) ? $libpath . '/' . $subpath : $libpath;
+}
+
+/**
+ * Loads various inc files.
+ */
+function dfm_inc($name) {
+  static $dir, $loaded = array();
+  if (!isset($dir)) {
+    $dir = DRUPAL_ROOT . '/' . drupal_get_path('module', 'dfm');
+  }
+  if (!isset($loaded[$name])) {
+    $loaded[$name] = TRUE;
+    include_once "$dir/dfm.$name.inc";
+  }
+}

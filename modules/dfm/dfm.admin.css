@@ -1,0 +1,31 @@
+/* Tokens */
+table.token-tree {
+  margin-left: 0;
+}
+table.token-tree caption {
+  margin: 0;
+  text-align: left;
+}
+table.token-tree .expander {
+  margin: 0 !important;
+}
+
+/* Folder counter */
+.dfm-profile-form {
+  counter-reset: folder;
+}
+.folder-container > .form-type-textfield:before {
+  counter-increment: folder;
+  content: counter(folder) ". ";
+}
+
+/* Indent permissions */
+.folder-container > .folder-permissions {
+  margin-left: 1.5em;
+}
+
+/* Align permission checkboxes */
+.permission-group .form-type-checkbox {
+  float: left;
+  min-width: 13em;
+}

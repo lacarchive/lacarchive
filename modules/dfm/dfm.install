@@ -1,0 +1,237 @@
+<?php
+
+/**
+ * @file
+ * Installs, updates, and uninstalls Drupella FM.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function dfm_install() {
+  module_load_include('inc', 'dfm', 'dfm.install');
+  dfm_install_default_profiles();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function dfm_uninstall() {
+  db_delete('file_usage')->condition('module', 'dfm')->execute();
+  variable_del('dfm_roles_profiles');
+  variable_del('dfm_preprocess_profile');
+  variable_del('dfm_postprocess_profile');
+  variable_del('dfm_register_hook');
+  variable_del('dfm_textareas');
+  variable_del('dfm_abs_urls');
+  variable_del('dfm_merge_folders');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function dfm_schema() {
+  $schema['dfm_profiles'] = array(
+    'description' => 'Stores configuration profiles.',
+    'fields' => array(
+      'pid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique profile ID.',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The profile name.',
+      ),
+      'conf' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => 'Serialized configuration.',
+      ),
+    ),
+    'primary key' => array('pid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+ function dfm_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  if ($phase === 'runtime') {
+    $roles = user_roles(FALSE, 'administer Drupella FM');
+    $roles = array_intersect_key($roles, array(DRUPAL_ANONYMOUS_RID => '', DRUPAL_AUTHENTICATED_RID => ''));
+    if ($roles) {
+      $requirements['dfm'] = array(
+        'title' => $t('Drupella FM'),
+        'value' => $t('Roles (%roles) having %permission permission is a security risk. Please consider <a href="!url">revoking the permission</a>.', array('%roles' => implode(', ', $roles), '%permission' => $t('Administer Drupella FM'), '!url' => url('admin/people/permissions', array('fragment' => 'module-dfm')))),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+  }
+  return $requirements;
+}
+
+/**
+ * Updates from 6.x to 7.x.
+ */
+function dfm_update_7000() {
+  // Update role-profile assignments
+  $roles_profiles = variable_get('dfm_roles_profiles', array());
+  if (!empty($roles_profiles)) {
+    $scheme = variable_get('file_default_scheme', 'public');
+    foreach ($roles_profiles as $rid => &$role) {
+      if (isset($role['pid'])) {
+        $role[$scheme . '_pid'] = $role['pid'];
+        unset($role['pid']);
+      }
+    }
+    variable_set('dfm_roles_profiles', $roles_profiles);
+  }
+  // Update textarea ids
+  if ($ids = str_replace(' ', '', variable_get('dfm_textareas', ''))) {
+    $ids = explode(',', $ids);
+    foreach ($ids as &$id) {
+      $id .= '*';
+    }
+    variable_set('dfm_textareas', implode(', ', $ids));
+  }
+  // Update directory tokens [uid] and [user]. Others need manual update.
+  $result = db_query('SELECT * FROM {dfm_profiles}');
+  $strtr = array('[uid]' => '[user:uid]', '[user]' => '[user:name]', '[user-raw]' => '[user:name]');
+  foreach ($result as $profile) {
+    $conf = unserialize($profile->conf);
+    $dirconf = &$conf['dirConfRaw'];
+    $update = FALSE;
+    foreach ($dirconf as &$dir) {
+      if (preg_match('/\[(uid|user|user\-raw)\]/', $dir['dirname'])) {
+        $update = TRUE;
+        $dir['dirname'] = strtr($dir['dirname'], $strtr);
+      }
+    }
+    if ($update) {
+      db_query('UPDATE {dfm_profiles} SET conf = :conf WHERE pid = :pid', array(':conf' => serialize($conf), ':pid' => $profile->pid));
+    }
+  }
+}
+
+/**
+ * Migrates DFM files.
+ */
+function dfm_update_7001(&$sandbox) {
+  if (!db_table_exists('dfm_files') || !db_table_exists('files')) {
+    return;
+  }
+  // Initiate progress
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['last_fid_processed'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(*) FROM {dfm_files} i INNER JOIN {files} f ON i.fid = f.fid")->fetchField();
+  }
+  // Prepare variables
+  $limit = 250;
+  $basedir = variable_get('file_directory_path', conf_path() . '/files') . '/';
+  $baselen = strlen($basedir);
+  $scheme = file_default_scheme() . '://';
+  $result = db_query_range('SELECT f.* FROM {dfm_files} i INNER JOIN {files} f ON i.fid = f.fid WHERE i.fid > :fid ORDER BY i.fid', 0, $limit, array(':fid' => $sandbox['last_fid_processed']))->fetchAll();
+  // Migrate DFM files from {files} to {file_managed}
+  foreach ($result as $file) {
+    $relpath = substr($file->filepath, 0, $baselen) == $basedir ? substr($file->filepath, $baselen) : $file->filepath;
+    $file->uri = file_stream_wrapper_uri_normalize($scheme . $relpath);
+    unset($file->filepath);
+    if (!db_query("SELECT 1 FROM {file_managed} WHERE fid = :fid", array(':fid' => $file->fid))->fetchField()) {
+      // Check duplicate uri
+      if ($fid = db_query("SELECT fid FROM {file_managed} WHERE uri = :uri", array(':uri' => $file->uri))->fetchField()) {
+        $file->fid = $fid;
+      }
+      else {
+        drupal_write_record('file_managed', $file);
+      }
+    }
+    file_usage_add($file, 'dfm', 'file', $file->fid);
+    $sandbox['progress']++;
+    $sandbox['last_fid_processed'] = $file->fid;
+  }
+  // Drop {dfm_files} if the progress is complete.
+  $sandbox['#finished'] = empty($sandbox['max']) ? 1 : $sandbox['progress'] / $sandbox['max'];
+  if ($sandbox['#finished'] >= 1) {
+    db_drop_table('dfm_files');
+    return 'Migrated Drupella FM files.';
+  }
+}
+
+/**
+ * Updates from 7.x-1.x to 7.x-2.x.
+ * Sets default search settings.
+ */
+function dfm_update_7200() {
+  $admin_values = array('searchOn' => 1, 'searchLimit' => 0);
+  $member_values = array('searchOn' => 1, 'searchLimit' => 100);
+  $result = db_query('SELECT * FROM {dfm_profiles}');
+  foreach ($result as $profile) {
+    $conf = unserialize($profile->conf);
+    if (!isset($conf['searchOn'])) {
+      $conf += $profile->pid == 1 ? $admin_values : $member_values;
+      db_query('UPDATE {dfm_profiles} SET conf = :conf WHERE pid = :pid', array(':conf' => serialize($conf), ':pid' => $profile->pid));
+    }
+  }
+}
+
+/**
+ * Disables dfm_dl module in favor of the download feature in core.
+ */
+function dfm_update_7201() {
+  // Update download permissions in configuration profiles.
+  $updated = FALSE;
+  $update_perms = function(&$perms) use(&$updated) {
+    foreach (array('Files', 'Folders') as $type) {
+      $old = "dl$type";
+      $new = "download$type";
+      if (!empty($perms[$old])) {
+        unset($perms[$old]);
+        if (!isset($perms[$new])) {
+          $perms[$new] = 1;
+        }
+        $updated = TRUE;
+      }
+    }
+  };
+  $result = db_query('SELECT * FROM {dfm_profiles}');
+  foreach ($result as $profile) {
+    $conf = unserialize($profile->conf);
+    $updated = FALSE;
+    foreach ($conf['dirConfRaw'] as &$dirconf) {
+      if (!empty($dirconf['perms'])) {
+        $update_perms($dirconf['perms']);
+        if (!empty($dirconf['subdirConf']['perms'])) {
+          $update_perms($dirconf['subdirConf']['perms']);
+        }
+      }
+      // Always enable perms for root of #1 profile.
+      if ($dirconf['dirname'] === '.' && $profile->pid == 1) {
+        $dirconf['perms'] += array('downloadFiles' => 1, 'downloadFolders' => 1);
+        $updated = TRUE;
+      }
+    }
+    if ($updated) {
+      db_query('UPDATE {dfm_profiles} SET conf = :conf WHERE pid = :pid', array(':conf' => serialize($conf), ':pid' => $profile->pid));
+    }
+  }
+  // Disable dfm_dl module
+  if (module_exists('dfm_dl')) {
+    module_disable(array('dfm_dl'), FALSE);
+  }
+}
+
+/**
+ * Updates from 7.x-2.x to 7.x-3.x.
+ */
+function dfm_update_7300() {
+  variable_del('dfm_serve_private');
+}
