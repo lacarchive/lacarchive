@@ -118,22 +118,18 @@ if (!class_exists('FacesExtendable', FALSE)) {
           self::load_include($this->facesIncludes[$name]);
           $this->facesIncludes[$name] = NULL;
         }
-        elseif (isset($this->facesIncludes['execute'])) {
-          self::load_include($this->facesIncludes['execute']);
-          $this->facesIncludes['execute'] = NULL;
-        }
         if (isset($method[0])) {
           // We always pass the object reference and the name of the method.
           $arguments[] = $this;
           $arguments[] = $name;
-          return call_user_func_array($method[0], $arguments);
+          return call_user_func_array($method[0], array_values($arguments));
         }
         // Call the method on the extender object, but don't use extender()
         // for performance reasons.
         if (!isset($this->facesClassInstances[$method[1]])) {
           $this->facesClassInstances[$method[1]] = new $method[1]($this);
         }
-        return call_user_func_array(array($this->facesClassInstances[$method[1]], $name), $arguments);
+        return call_user_func_array(array($this->facesClassInstances[$method[1]], $name), array_values($arguments));
       }
       $class = check_plain(get_class($this));
       throw new FacesExtendableException("There is no method $name for this instance of the class $class.");
@@ -161,7 +157,7 @@ if (!class_exists('FacesExtendable', FALSE)) {
      * implementation.
      *
      * @param $interface
-     *   Optional. An interface to test for. If it's omitted, all interfaces
+     *   (optional) An interface to test for. If it's omitted, all interfaces
      *   that the object can be faced as are returned.
      *
      * @return bool
@@ -228,7 +224,6 @@ if (!class_exists('FacesExtendable', FALSE)) {
      *   describe a single file.
      */
     public function extend($interface, array $callbacks = array(), array $includes = array()) {
-      $interface = class_exists($interface) ? $interface : FALSE;
       $face_methods = $interface ? get_class_methods($interface) : array_keys($callbacks);
       if ($interface) {
         if (array_diff($face_methods, array_keys($callbacks))) {
@@ -318,7 +313,7 @@ if (!class_exists('FacesExtendable', FALSE)) {
      */
     public function call($name, array $args = array()) {
       if (method_exists($this, $name)) {
-        return call_user_func_array(array($this, $name), $args);
+        return call_user_func_array(array($this, $name), array_values($args));
       }
       return $this->__call($name, $args);
     }
