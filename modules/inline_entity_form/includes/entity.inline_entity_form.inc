@@ -141,8 +141,10 @@ class EntityInlineEntityFormController {
    */
   public function defaultSettings() {
     $defaults = array();
+    $defaults['allow_new'] = TRUE;
     $defaults['allow_existing'] = FALSE;
     $defaults['match_operator'] = 'CONTAINS';
+    $defaults['allow_clone'] = FALSE;
     $defaults['delete_references'] = FALSE;
     $labels = $this->defaultLabels();
     $defaults['override_labels'] = FALSE;
@@ -168,6 +170,11 @@ class EntityInlineEntityFormController {
     $states_prefix = 'instance[widget][settings][type_settings]';
 
     $form = array();
+    $form['allow_new'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow users to add new @label.', array('@label' => $labels['plural'])),
+      '#default_value' => $this->settings['allow_new'],
+    );
     $form['allow_existing'] = array(
       '#type' => 'checkbox',
       '#title' => t('Allow users to add existing @label.', array('@label' => $labels['plural'])),
@@ -194,12 +201,16 @@ class EntityInlineEntityFormController {
       $form['match_operator']['#access'] = FALSE;
     }
 
+    $form['allow_clone'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow users to clone @label.', array('@label' => $labels['plural'])),
+      '#default_value' => isset($this->settings['allow_clone'])? $this->settings['allow_clone'] : FALSE,
+    );
     $form['delete_references'] = array(
       '#type' => 'checkbox',
       '#title' => t('Delete referenced @label when the parent entity is deleted.', array('@label' => $labels['plural'])),
       '#default_value' => $this->settings['delete_references'],
     );
-
     $form['override_labels'] = array(
       '#type' => 'checkbox',
       '#title' => t('Override labels'),
@@ -369,6 +380,44 @@ class EntityInlineEntityFormController {
     }
 
     return IEF_ENTITY_UNLINK_DELETE;
+  }
+
+  /**
+   * Creates a clone of the given entity.
+   *
+   * Copies the entity_ui_clone_entity() approach, extending it to unset
+   * additional unique properties.
+   *
+   * @param $entity
+   *   The entity to clone.
+   *
+   * @return
+   *   The unsaved cloned entity.
+   */
+  public function createClone($entity) {
+    $cloned_entity = clone $entity;
+    $cloned_entity->is_new = TRUE;
+
+    $entity_info = entity_get_info($this->entityType);
+    // Make sure the status of a cloned exportable is custom.
+    if (!empty($entity_info['exportable'])) {
+      $status_key = isset($entity_info['entity keys']['status']) ? $entity_info['entity keys']['status'] : 'status';
+      $cloned_entity->$status_key = ENTITY_CUSTOM;
+    }
+    // Unset properties specified as entity keys.
+    foreach (array('id', 'name', 'revision') as $key) {
+      if (!empty($entity_info['entity keys'][$key])) {
+        $cloned_entity->{$entity_info['entity keys'][$key]} = NULL;
+      }
+    }
+    // Unset other common properties.
+    foreach (array('created', 'changed', 'uid', 'revision_timestamp', 'revision_uid') as $property) {
+      if (isset($cloned_entity->{$property})) {
+        $cloned_entity->{$property} = NULL;
+      }
+    }
+
+    return $cloned_entity;
   }
 
   /**
