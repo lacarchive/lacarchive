@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Installation file for the automatic nodetitle module
+ * Installation file for the automatic nodetitle module.
  */
 
 /**
@@ -21,13 +21,4 @@ function auto_nodetitle_uninstall() {
     variable_del('ant_pattern_' . $type);
     variable_del('ant_php_' . $type);
   }
-}
-
-/**
- * make sure hooks are invoked after cck main hooks
- */
-function auto_nodetitle_update_1() {
-  $ret = array();
-  $ret[] = update_sql("UPDATE {system} SET weight = 5 WHERE name = 'auto_nodetitle'");
-  return $ret;
 }
