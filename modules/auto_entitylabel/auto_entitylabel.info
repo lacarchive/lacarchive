@@ -6,9 +6,9 @@ configure = admin/structure/auto-label
 
 dependencies[] = entity
 
-; Information added by Drupal.org packaging script on 2017-04-26
-version = "7.x-1.4"
+; Information added by Drupal.org packaging script on 2017-08-03
+version = "7.x-1.4+5-dev"
 core = "7.x"
 project = "auto_entitylabel"
-datestamp = "1493219646"
+datestamp = "1501772653"
 
