@@ -6,7 +6,7 @@ dependencies[] = file_entity
 hidden = TRUE
 
 ; Information added by Drupal.org packaging script on 2022-03-19
-version = "7.x-2.36"
+version = "7.x-3.0-beta22"
 core = "7.x"
 project = "file_entity"
-datestamp = "1647724729"
+datestamp = "1647724856"
