@@ -1,0 +1,38 @@
+name= Automatic Updates
+type = module
+description = Display Public service announcements and verify readiness for applying automatic updates to the site.
+core = 7.x
+php = 5.6
+package = Security
+configure = admin/config/system/automatic_updates
+dependencies[] = drupal:system
+dependencies[] = drupal:update
+
+files[] = tests/automatic_updates.test
+files[] = AutomaticUpdatesPsa.php
+files[] = ProjectInfoTrait.php
+files[] = IgnoredPathsTrait.php
+files[] = ProjectInfoTrait.php
+files[] = IgnoredPathsIteratorFilter.php
+files[] = ModifiedFilesService.php
+files[] = Notify.php
+files[] = PostUpdateNotify.php
+files[] = InPlaceUpdate.php
+files[] = ReadinessCheckers/ReadinessCheckerManager.php
+files[] = ReadinessCheckers/ReadinessCheckerInterface.php
+files[] = ReadinessCheckers/BlacklistPhp72Versions.php
+files[] = ReadinessCheckers/CronFrequency.php
+files[] = ReadinessCheckers/DiskSpace.php
+files[] = ReadinessCheckers/FileOwnership.php
+files[] = ReadinessCheckers/OpcodeCache.php
+files[] = ReadinessCheckers/MissingProjectInfo.php
+files[] = ReadinessCheckers/ModifiedFiles.php
+files[] = ReadinessCheckers/PendingDbUpdates.php
+files[] = ReadinessCheckers/PhpSapi.php
+files[] = ReadinessCheckers/ReadOnlyFilesystem.php
+
+; Information added by Drupal.org packaging script on 2019-12-19
+version = "7.x-1.0"
+core = "7.x"
+project = "automatic_updates"
+datestamp = "1576791797"

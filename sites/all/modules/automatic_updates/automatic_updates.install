@@ -1,0 +1,112 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the automatic_updates module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function automatic_updates_uninstall() {
+  variable_del('automatic_updates_psa_endpoint');
+  variable_del('automatic_updates_enable_psa');
+  variable_del('automatic_updates_notify');
+  variable_del('automatic_updates_enable_readiness_checks');
+  variable_del('automatic_updates.readiness_check_results.error');
+  variable_del('automatic_updates.readiness_check_results.warning');
+  variable_del('automatic_updates.readiness_check_timestamp');
+  variable_del('automatic_updates_check_frequency');
+  variable_del('automatic_updates.notify_last_check');
+  variable_del('automatic_updates_ignored_paths');
+  variable_del('automatic_updates_php_sapi');
+  variable_del('automatic_updates_hashes_uri');
+  variable_del('automatic_updates_download_uri');
+  variable_del('automatic_updates_enable_cron_updates');
+  variable_del('automatic_updates_enable_cron_security_updates');
+  variable_del('automatic_updates.cron_last_check');
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function automatic_updates_requirements($phase) {
+  if ($phase !== 'runtime') {
+    return NULL;
+  }
+
+  $requirements = array();
+  _automatic_updates_checker_requirements($requirements);
+  _automatic_updates_psa_requirements($requirements);
+  return $requirements;
+}
+
+/**
+ * Display requirements from results of readiness checker.
+ *
+ * @param array $requirements
+ *   The requirements array.
+ */
+function _automatic_updates_checker_requirements(array &$requirements) {
+  if (!ReadinessCheckerManager::isEnabled()) {
+    return;
+  }
+
+  $last_check_timestamp = ReadinessCheckerManager::timestamp();
+  $requirements['automatic_updates_readiness'] = [
+    'title' => t('Update readiness checks'),
+    'severity' => REQUIREMENT_OK,
+    'value' => t('Your site is ready to for <a href="@readiness_checks">automatic updates</a>.', ['@readiness_checks' => 'https://www.drupal.org/docs/7/update/automatic-updates#readiness-checks']),
+  ];
+  $error_results = ReadinessCheckerManager::getResults('error');
+  $warning_results = ReadinessCheckerManager::getResults('warning');
+  $checker_results = array_merge($error_results, $warning_results);
+  if (!empty($checker_results)) {
+    $requirements['automatic_updates_readiness']['severity'] = $error_results ? REQUIREMENT_ERROR : REQUIREMENT_WARNING;
+    $requirements['automatic_updates_readiness']['value'] = format_plural(count($checker_results), '@count check failed:', '@count checks failed:');
+    $requirements['automatic_updates_readiness']['description'] = theme('item_list', array(
+      'items' => $checker_results,
+    ));
+  }
+  if (REQUEST_TIME > $last_check_timestamp + 3600 * 24) {
+    $requirements['automatic_updates_readiness']['severity'] = REQUIREMENT_ERROR;
+    $requirements['automatic_updates_readiness']['value'] = t('Your site has not recently checked if it is ready to apply <a href="@readiness_checks">automatic updates</a>.', ['@readiness_checks' => 'https://www.drupal.org/docs/7/update/automatic-updates#readiness-checks']);
+    $time_ago = format_interval(REQUEST_TIME - $last_check_timestamp);
+    if ($last_check_timestamp === 0) {
+      $requirements['automatic_updates_readiness']['description'] = t('<a href="@link">Run readiness checks</a> manually.', [
+        '@link' => url('admin/config/system/automatic_updates/readiness'),
+      ]);
+    }
+    else {
+      $requirements['automatic_updates_readiness']['description'] = t('Last run @time ago. <a href="@link">Run readiness checks</a> manually.', [
+        '@time' => $time_ago,
+        '@link' => url('admin/config/system/automatic_updates/readiness'),
+      ]);
+    }
+  }
+}
+
+/**
+ * Display requirements from Public service announcements.
+ *
+ * @param array $requirements
+ *   The requirements array.
+ */
+function _automatic_updates_psa_requirements(array &$requirements) {
+  if (!variable_get('automatic_updates_enable_psa', TRUE)) {
+    return;
+  }
+  $requirements['automatic_updates_psa'] = [
+    'title' => t('<a href="@link">Public service announcements</a>', ['@link' => 'https://www.drupal.org/docs/7/update/automatic-updates#psas']),
+    'severity' => REQUIREMENT_OK,
+    'value' => t('No announcements requiring attention.'),
+  ];
+  $messages = AutomaticUpdatesPsa::getPublicServiceMessages();
+  if (!empty($messages)) {
+    $requirements['automatic_updates_psa']['severity'] = REQUIREMENT_ERROR;
+    $requirements['automatic_updates_psa']['value'] = format_plural(count($messages), '@count urgent announcement requires your attention:', '@count urgent announcements require your attention:');
+    $requirements['automatic_updates_psa']['description'] = theme('item_list', array(
+      'items' => $messages,
+    ));
+  }
+}

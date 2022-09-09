@@ -1,0 +1,91 @@
+<?php
+
+/**
+ * @file
+ * Contains AutomaticUpdatesTestCase class.
+ */
+
+/**
+ * Class AutomaticUpdatesTestCase.
+ */
+class AutomaticUpdatesTestCase extends DrupalWebTestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getInfo() {
+    return [
+      'name' => 'Automatic Updates',
+      'description' => 'Tests automatic updates.',
+      'group' => 'Automatic Updates',
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setUp() {
+    parent::setUp(['automatic_updates', 'automatic_updates_test', 'update']);
+    $psa_endpoint = $this->getAbsoluteUrl('automatic_updates/test-json');
+    variable_set('automatic_updates_psa_endpoint', $psa_endpoint);
+    cache_clear_all(['automatic_updates_psa'], 'cache');
+
+    // Create a user with permission to view the actions administration pages.
+    $user = $this->drupalCreateUser([
+      'access administration pages',
+      'administer site configuration',
+      'administer software updates',
+    ]);
+    $this->drupalLogin($user);
+  }
+
+  /**
+   * Test automatic updates.
+   */
+  public function testAutomaticUpdates() {
+    // Test PSAs.
+    $this->drupalGet('admin');
+    $this->assertText('Critical Release - SA-2019-02-19');
+    $this->assertText('Critical Release - PSA-Really Old');
+    $this->assertText('Seven - Moderately critical - Access bypass - SA-CONTRIB-2019');
+    $this->assertNoText('Node - Moderately critical - Access bypass - SA-CONTRIB-2019');
+
+    // Test disabling PSAs.
+    variable_set('automatic_updates_enable_psa', FALSE);
+    $this->drupalGet('admin');
+    $this->assertNoText('Critical Release - SA-2019-02-19');
+    variable_set('automatic_updates_enable_psa', TRUE);
+
+    // Test site status report.
+    $this->drupalGet($this->getAbsoluteUrl('admin/reports/status'));
+    $this->assertText('3 urgent announcements require your attention:');
+
+    // Test cache.
+    $psa_endpoint = $this->getAbsoluteUrl('automatic_updates/test-json-denied');
+    variable_set('automatic_updates_psa_endpoint', $psa_endpoint);
+    $this->drupalGet('admin');
+    $this->assertText('Critical Release - SA-2019-02-19');
+
+    // Test transmit errors with JSON endpoint.
+    cache_clear_all(['automatic_updates_psa'], 'cache');
+    $this->drupalGet('admin');
+    $this->assertText('automatic_updates/test-json-denied is unreachable.');
+  }
+
+  /**
+   * Tests manually running readiness checks.
+   */
+  public function testReadinessChecks() {
+    // Fabricate a readiness issue.
+    $this->drupalGet($this->getAbsoluteUrl('admin/config/system/automatic_updates'));
+    $this->clickLink('run the readiness checks');
+    $this->assertText('Your site does not pass some readiness checks for automatic updates. Depending on the nature of the failures, it might effect the eligibility for automatic updates.');
+
+    // Ignore certain folders for readiness checks.
+    variable_set('automatic_updates_ignored_paths', "modules/*\nthemes/*\nprofiles/*\nsites/all/modules/*");
+    $this->drupalGet($this->getAbsoluteUrl('admin/config/system/automatic_updates'));
+    $this->clickLink('run the readiness checks');
+    $this->assertText('No issues found. Your site is ready for automatic updates.');
+  }
+
+}

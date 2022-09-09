@@ -1,0 +1,73 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * @file
+ * Provides helper commands for automatic updates.
+ *
+ * This must be a separate application so class caches aren't an issue during
+ * in place updates.
+ */
+
+if (PHP_SAPI !== 'cli') {
+  return;
+}
+
+if (file_exists($bootstrap = __DIR__ . '/../../../../../../includes/bootstrap.inc')
+  || file_exists($bootstrap = __DIR__ . '/../../../../../includes/bootstrap.inc')
+  || file_exists($bootstrap = __DIR__ . '/../../../../../../../includes/bootstrap.inc')
+) {
+  define('DRUPAL_ROOT', dirname(dirname($bootstrap)));
+  $_SERVER['HTTP_HOST'] = 'default';
+  $_SERVER['REQUEST_URI'] = '/';
+  $_SERVER['PHP_SELF'] = $_SERVER['REQUEST_URI'] . 'index.php';
+  $_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'];
+  $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+  $_SERVER['REQUEST_METHOD']  = 'GET';
+  $_SERVER['SERVER_SOFTWARE'] = NULL;
+  $_SERVER['HTTP_USER_AGENT'] = NULL;
+  $_SERVER['SCRIPT_FILENAME'] = DRUPAL_ROOT . '/index.php';
+  $root = dirname(dirname($bootstrap));
+  chdir($root);
+  require_once $bootstrap;
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+
+}
+else {
+  throw new \RuntimeException('Could not locate includes/bootstrap.inc; __DIR__ is ' . __DIR__);
+}
+
+$allowed_arguments = [
+  'cache:clear',
+  'updatedb:status',
+];
+$argument = array_pop($argv);
+if (empty($argument) || !in_array($argument, $allowed_arguments, TRUE)) {
+  print sprintf('Missing required arguments. Allowed arguments are: %s', implode(', ', $allowed_arguments)). PHP_EOL;
+  exit(1);
+}
+
+switch ($argument) {
+  case 'cache:clear':
+    automatic_updates_cache_clear();
+    break;
+
+  case 'updatedb:status':
+    automatic_updates_database_update_status();
+    break;
+}
+
+function automatic_updates_cache_clear() {
+  drupal_flush_all_caches();
+  print 'All cache was cleared.' . PHP_EOL;
+}
+
+function automatic_updates_database_update_status() {
+  require_once DRUPAL_ROOT . '/includes/install.inc';
+  require_once DRUPAL_ROOT . '/includes/update.inc';
+  drupal_load_updates();
+  $updates = (bool) update_get_update_list();
+  if ($updates) {
+    print 'There are pending database updates. Please run update.php.' . PHP_EOL;
+  }
+}

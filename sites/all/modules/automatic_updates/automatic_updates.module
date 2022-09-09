@@ -1,0 +1,269 @@
+<?php
+
+/**
+ * @file
+ * Contains automatic_updates.module.
+ */
+
+/**
+ * Implements hook_init().
+ */
+function automatic_updates_init() {
+  if (arg(0) == 'admin' && user_access('administer site configuration')) {
+    $disabled_routes = array(
+      'admin/appearance/update',
+      'admin/appearance/install',
+      'admin/modules/update',
+      'admin/modules/install',
+      'admin/reports/updates',
+      'admin/reports/updates/update',
+      'admin/reports/updates/install',
+      'admin/reports/updates/settings',
+      'admin/reports/status',
+      'admin/update/ready',
+    );
+    // These paths don't need additional nagging.
+    if (in_array($_GET['q'], $disabled_routes)) {
+      return;
+    }
+
+    $messages = AutomaticUpdatesPsa::getPublicServiceMessages();
+    if ($messages) {
+      drupal_set_message(t('Public service announcements:'), 'error', FALSE);
+      foreach ($messages as $message) {
+        drupal_set_message($message, 'error', FALSE);
+      }
+    }
+
+    $last_check_timestamp = ReadinessCheckerManager::timestamp();
+    if (REQUEST_TIME > $last_check_timestamp + 3600 * 24) {
+      drupal_set_message(t('Your site has not recently run an update readiness check. <a href="@link">Administer automatic updates</a> and run readiness checks manually.', [
+        '@link' => url('admin/config/system/automatic_updates'),
+      ]), 'error', FALSE);
+    }
+    $results = ReadinessCheckerManager::getResults('error');
+    if ($results) {
+      drupal_set_message(t('Your site is currently failing readiness checks for automatic updates. It cannot be <a href="@readiness_checks">automatically updated</a> until further action is performed:', ['@readiness_checks' => 'https://www.drupal.org/docs/7/update/automatic-updates#readiness-checks']), 'error', FALSE);
+      foreach ($results as $message) {
+        drupal_set_message($message, 'error', FALSE);
+      }
+    }
+    $results = ReadinessCheckerManager::getResults('warning');
+    if ($results) {
+      drupal_set_message(t('Your site does not pass some readiness checks for automatic updates. Depending on the nature of the failures, it might effect the eligibility for <a href="@readiness_checks">automatic updates</a>.', ['@readiness_checks' => 'https://www.drupal.org/docs/7/update/automatic-updates#readiness-checks']), 'warning', FALSE);
+      foreach ($results as $message) {
+        drupal_set_message($message, 'warning', FALSE);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function automatic_updates_menu() {
+  $items = [];
+
+  $items['admin/config/system/automatic_updates'] = [
+    'title' => 'Automatic Updates',
+    'description' => 'Configure automatic update settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['automatic_updates_admin_form'],
+    'file' => 'automatic_updates.admin.inc',
+    'access arguments' => ['administer software updates'],
+    'tab parent' => 'admin/config/system',
+  ];
+  $items['admin/config/system/automatic_updates/readiness'] = [
+    'title' => 'Update readiness checking...',
+    'page callback' => 'automatic_updates_run_checks',
+    'file' => 'automatic_updates.admin.inc',
+    'access arguments' => ['administer software updates'],
+    'type' => MENU_CALLBACK,
+  ];
+  $items['automatic_updates/in-place-update/%/%/%/%'] = [
+    'title' => 'Update',
+    'page callback' => 'automatic_updates_in_place_update',
+    'page arguments' => [2, 3, 4, 5],
+    'type' => MENU_CALLBACK,
+    'file' => 'automatic_updates.pages.inc',
+    'access arguments' => ['administer software updates'],
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function automatic_updates_cron() {
+  // Only allow cron to run once every hour.
+  $cron_last_check = variable_get('automatic_updates.cron_last_check', 0);
+  if ((REQUEST_TIME - $cron_last_check) < 3600) {
+    return;
+  }
+  // Checkers should run before updates because of class caching.
+  Notify::send();
+  foreach (ReadinessCheckerManager::getCategories() as $category) {
+    ReadinessCheckerManager::run($category);
+  }
+  // In-place updates won't function for dev releases of Drupal core.
+  $dev_core = strpos(VERSION, '-dev') !== FALSE;
+  if (!$dev_core && variable_get('automatic_updates_enable_cron_updates', FALSE)) {
+    update_refresh();
+    update_fetch_data();
+    $available = update_get_available(TRUE);
+    $projects = update_calculate_project_data($available);
+    $not_recommended_version = $projects['drupal']['status'] !== UPDATE_CURRENT;
+    $security_update = in_array($projects['drupal']['status'], [UPDATE_NOT_SECURE, UPDATE_REVOKED], TRUE);
+    $recommended_release = isset($projects['drupal']['releases'][$projects['drupal']['recommended']]) ? $projects['drupal']['releases'][$projects['drupal']['recommended']] : NULL;
+    // Don't update from/to same version.
+    if ($not_recommended_version && $projects['drupal']['existing_version'] !== $recommended_release['version']) {
+      if (variable_get('automatic_updates_enable_cron_security_updates', FALSE)) {
+        if ($security_update) {
+          InPlaceUpdate::update('drupal', 'core', VERSION, $recommended_release['version']);
+        }
+      }
+      else {
+        InPlaceUpdate::update('drupal', 'core', VERSION, $recommended_release['version']);
+      }
+    }
+  }
+  variable_set('automatic_updates.cron_last_check', time());
+}
+
+/**
+ * Implements hook_theme().
+ */
+function automatic_updates_theme(array $existing, $type, $theme, $path) {
+  return [
+    'automatic_updates_psa_notify' => [
+      'variables' => [
+        'messages' => [],
+      ],
+      'template' => 'automatic-updates-psa-notify',
+      'path' => $path . DIRECTORY_SEPARATOR . 'templates',
+    ],
+    'automatic_updates_post_update' => [
+      'variables' => [
+        'success' => NULL,
+        'project' => NULL,
+        'to_version' => NULL,
+        'from_version' => NULL,
+      ],
+      'template' => 'automatic-updates-post-update',
+      'path' => $path . DIRECTORY_SEPARATOR . 'templates',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_mail().
+ */
+function automatic_updates_mail($key, &$message, $params) {
+  $message['subject'] = $params['subject'];
+  $message['body'][] = drupal_render($params['body']);
+}
+
+/**
+ * Helper method to execute exec command.
+ *
+ * @param string $command_argument
+ *   The command argument.
+ *
+ * @return array
+ *   An array with results of the command.
+ */
+function automatic_updates_exec_command($command_argument) {
+  $module_path = drupal_get_path('module', 'automatic_updates');
+  $command = [
+    automatic_updates_find_php(),
+    $module_path . '/scripts/automatic_update_tools',
+    $command_argument,
+  ];
+  $output = [];
+  $return_code = 0;
+  exec(implode(' ', $command), $output, $return_code);
+  return ['output' => $output, 'return_code' => $return_code];
+}
+
+/**
+ * Find the PHP executable.
+ *
+ * Credit to Symfony\Component\Process\PhpExecutableFinder.
+ *
+ * @return string|bool
+ *   Path to PHP executable or FALSE if not locatable.
+ */
+function automatic_updates_find_php() {
+  $name = 'php';
+
+  // HHVM support.
+  if (\defined('HHVM_VERSION')) {
+    return (getenv('PHP_BINARY') ?: PHP_BINARY) . $args;
+  }
+
+  // PHP_BINARY return the current sapi executable.
+  if (PHP_BINARY && \in_array(\PHP_SAPI, ['cli', 'cli-server', 'phpdbg'], TRUE)) {
+    return PHP_BINARY;
+  }
+
+  if ($php = getenv('PHP_PATH')) {
+    if (!@is_executable($php)) {
+      return FALSE;
+    }
+
+    return $php;
+  }
+
+  if ($php = getenv('PHP_PEAR_PHP_BIN')) {
+    if (@is_executable($php)) {
+      return $php;
+    }
+  }
+
+  if (@is_executable($php = PHP_BINDIR . ('\\' === \DIRECTORY_SEPARATOR ? '\\php.exe' : '/php'))) {
+    return $php;
+  }
+
+  $extraDirs = [PHP_BINDIR];
+  if ('\\' === \DIRECTORY_SEPARATOR) {
+    $extraDirs[] = 'C:\xampp\php\\';
+  }
+
+  if (ini_get('open_basedir')) {
+    $searchPath = array_merge(explode(PATH_SEPARATOR, ini_get('open_basedir')), $extraDirs);
+    $dirs = [];
+    foreach ($searchPath as $path) {
+      // Silencing against https://bugs.php.net/69240
+      if (@is_dir($path)) {
+        $dirs[] = $path;
+      }
+      else {
+        if (basename($path) == $name && @is_executable($path)) {
+          return $path;
+        }
+      }
+    }
+  }
+  else {
+    $dirs = array_merge(
+      explode(PATH_SEPARATOR, getenv('PATH') ?: getenv('Path')),
+      $extraDirs
+      );
+  }
+
+  $suffixes = [''];
+  if ('\\' === \DIRECTORY_SEPARATOR) {
+    $pathExt = getenv('PATHEXT');
+    $suffixes = array_merge($pathExt ? explode(PATH_SEPARATOR, $pathExt) : $this->suffixes, $suffixes);
+  }
+  foreach ($suffixes as $suffix) {
+    foreach ($dirs as $dir) {
+      if (@is_file($file = $dir . \DIRECTORY_SEPARATOR . $name . $suffix) && ('\\' === \DIRECTORY_SEPARATOR || @is_executable($file))) {
+        return $file;
+      }
+    }
+  }
+
+  return FALSE;
+}
