@@ -1,0 +1,57 @@
+<?php
+/**
+ * Implements hook_token_info().
+ */
+// function laca_token_info() {
+
+//     $node_tokens['reference_number'] =  array(
+//       'name' => t("LACA Reference Number"),
+//       'description' => t("Logic to display node title on items with multiple authors"),
+//     );
+
+//     return array(
+//       'tokens' => array(
+//         'node' => $node_tokens,
+//       ),
+//     );
+// }
+
+/**
+ * Implements hook_tokens().
+ */
+// function laca_tokens($type, $tokens, array $data = array(), array $options = array()) {
+//   $replacements = array();
+
+//   // Check if token type is node
+//   if($type == 'node'){
+//     $node = $data['node'];
+//     foreach ($tokens as $name => $original) {
+//       switch ($name) {
+//         case 'reference_number':
+//           $replacements[$original] = 'RN';
+//           break;
+//       }
+//     }
+//   }
+//   return $replacements;
+// }
+
+
+/**
+* Implements hook_tokens_alter().
+*/
+function laca_tokens_alter(&$replacements, $context){
+  
+  // If no artists are specified for an Item, its reference number should be letters from the title:
+  if ($context['type'] == 'node' && !empty($context['data']['node'])) {
+    $node = $context['data']['node'];
+    $title = $node->title;
+
+    $family = $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']];
+    if ($family == '') {
+      $family = $title;
+      $family = preg_replace('/[^a-zA-Z0-9]/','', $family);
+    }
+    $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']] = strtoupper(substr($family,0,2)); 
+  }
+}
