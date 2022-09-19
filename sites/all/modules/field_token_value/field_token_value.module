@@ -1,0 +1,382 @@
+<?php
+
+/**
+ * @file
+ * Provides a field type allowing the value to be set using tokens.
+ */
+
+/**
+ * Implements hook_field_info().
+ */
+function field_token_value_field_info() {
+  return array(
+    'field_token_value' => array(
+      'label' => t('Field Token Value'),
+      'description' => t('Create a field value with the use of tokens.'),
+      'default_widget' => 'field_token_value_default',
+      'default_formatter' => 'field_token_value_text',
+      'instance_settings' => array(
+        'field_value' => '',
+        'remove_empty' => TRUE,
+      ),
+      'property_type' => 'text',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function field_token_value_field_is_empty($item, $field) {
+  return !isset($item['value']) || $item['value'] === '';
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function field_token_value_field_widget_info() {
+  return array(
+    'field_token_value_default' => array(
+      'label' => 'Field Token Value',
+      'field types' => array('field_token_value'),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_instance_settings_form().
+ */
+function field_token_value_field_instance_settings_form($field, $instance) {
+  $form['field_value'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Field value'),
+    '#description' => t('Enter the value for this field. Tokens are automatically replaced upon saving of the node itself.'),
+    '#default_value' => $instance['settings']['field_value'],
+    '#element_validate' => array('token_element_validate'),
+    '#token_types' => array($instance['entity_type']),
+    '#required' => TRUE,
+    '#maxlength' => 1024,
+  );
+
+  // Determine the version of token being used. That way we can ensure the token
+  // list is complete.
+  $info = token_theme();
+
+  // The theme_token_tree_link really only works if the token_types variable
+  // is available. This allows us to add the entity tokens to the list. This
+  // variable is only available with token version 1.6 or higher, or with the
+  // path found in https://www.drupal.org/node/2289203.
+  if (isset($info['token_tree_link']['variables']['token_types'])) {
+    $theme = 'token_tree_link';
+  }
+  else {
+    $theme = 'token_tree';
+  }
+
+  $form['token_help'] = array(
+    '#theme' => $theme,
+    '#token_types' => array($instance['entity_type']),
+  );
+
+  $form['remove_empty'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Remove empty tokens'),
+    '#description' => t('Select this option to remove tokens from the final text if no replacement value can be generated.'),
+    '#default_value' => $instance['settings']['remove_empty'],
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function field_token_value_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  // As the output for this field is set within the instance settings, there is
+  // no need to display any form elements.
+  return array();
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function field_token_value_field_formatter_info() {
+  return array(
+    'field_token_value_text' => array(
+      'label' => t('Text'),
+      'field types' => array('field_token_value'),
+      'settings' => array('wrapper' => 'p'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function field_token_value_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = array();
+
+  $element['wrapper'] = array(
+    '#type' => 'select',
+    '#title' => t('Wrapper'),
+    '#description' => t('The wrapper to use for the field output.'),
+    '#default_value' => $settings['wrapper'],
+    '#options' => field_token_value_get_wrapper_options(),
+    '#empty_option' => t('- Select wrapper -'),
+  );
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function field_token_value_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  // Display the wrapper summary if it is available.
+  if (isset($settings['wrapper'])) {
+    $wrapper_info = field_token_value_get_wrapper_by_key($settings['wrapper']);
+    if (!empty($wrapper_info['summary'])) {
+      $summary = $wrapper_info['summary'];
+    }
+    else {
+      $summary = t('The field output will be wrapped in a %tag tag.', array('%tag' => $wrapper_info['tag']));
+    }
+  }
+  else {
+    $summary = t('No wrapper has been selected yet so a paragraph will be used by default.');
+  }
+
+  return $summary;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function field_token_value_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  $settings = $display['settings'];
+
+  // Because the field value is determined by the instance settings, even if the
+  // user somehow managed to add multiple items, the same value will be set for
+  // each one. Because of this we only ever use the first value.
+  if (!empty($items[0]['value'])) {
+    // By default a paragraph tag is used.
+    $element[0] = array(
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $items[0]['value'],
+    );
+
+    if (!empty($settings['wrapper'])) {
+      $wrapper_info = field_token_value_get_wrapper_by_key($settings['wrapper']);
+
+      // Update the output tag based on the wrapper info.
+      $element[0]['#tag'] = $wrapper_info['tag'];
+
+      // If the wrapper contains attributes such as class, add them in.
+      if (isset($wrapper_info['attributes'])) {
+        $element[0]['#attributes'] = $wrapper_info['attributes'];
+      }
+
+      // Allow modules to alter the output of the field. For example to possibly
+      // attach CSS or JS for a particular tag.
+      drupal_alter('field_token_value_output', $element[0], $wrapper_info);
+    }
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_presave().
+ */
+function field_token_value_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  $remove_empty = $instance['settings']['remove_empty'];
+  $field_value = token_replace($instance['settings']['field_value'],
+    array($entity_type => $entity),
+    array('clear' => $remove_empty)
+  );
+
+  // Save the updated field value and ensure there is no HTML.
+  $items[0]['value'] = trim(preg_replace('#<[^>]+>#', ' ', $field_value));
+}
+
+/**
+ * Helper function to aggregate all wrapper options for the field formatter.
+ *
+ * @return array
+ *   An array containing all wrapper options.
+ */
+function field_token_value_get_wrappers() {
+  $wrappers = &drupal_static(__FUNCTION__);
+  if (!isset($wrappers)) {
+    $wrappers = array();
+    foreach (module_implements('field_token_value_wrapper_info') as $module) {
+      $wrapper = module_invoke($module, 'field_token_value_wrapper_info');
+      if (!is_array($wrapper)) {
+        watchdog('field_token_value', 'A wrapper implemented by the module %module is not valid.', array('%module' => $module));
+        continue;
+      }
+
+      foreach ($wrapper as $key => $info) {
+        if (empty($info['tag']) || empty($info['title'])) {
+          watchdog('field_token_value', 'The wrapper with the key %key implemented by the module %module is not valid.', array('%key' => $key, '%module' => $module));
+          continue;
+        }
+
+        $wrappers[$key] = $info;
+      }
+    }
+
+    // Allow modules to alter the wrapper info.
+    drupal_alter('field_token_value_wrapper_info', $wrappers);
+  }
+
+  return $wrappers;
+}
+
+/**
+ * Helper function to retrieve a single wrapper item.
+ *
+ * @param string $key
+ *   The wrapper key to retrieve the wrapper info for.
+ *
+ * @return mixed
+ *   An array containing the wrapper information or false if not found.
+ */
+function field_token_value_get_wrapper_by_key($key) {
+  $wrappers = field_token_value_get_wrappers();
+  return isset($wrappers[$key]) ? $wrappers[$key] : FALSE;
+}
+
+/**
+ * Helper function to return a keyed array of wrappers for the field formatter
+ * settings form.
+ *
+ * @return array
+ *   An array of options keyed by the machine name as implemented using
+ *   hook_field_token_value_wrapper_info.
+ */
+function field_token_value_get_wrapper_options() {
+  $options = &drupal_static(__FUNCTION__);
+  if (!isset($options)) {
+    $wrappers = field_token_value_get_wrappers();
+
+    foreach ($wrappers as $wrapper => $info) {
+      $options[$wrapper] = $info['title'];
+    }
+  }
+  return $options;
+}
+
+/**
+ * Implements hook_field_token_value_wrapper_info().
+ */
+function field_token_value_field_token_value_wrapper_info() {
+  return array(
+    'blockquote' => array(
+      'title' => t('blockquote — A section quoted from another source'),
+      'summary' => t('The field output will be wrapped in a blockquote tag.'),
+      'tag' => 'blockquote',
+    ),
+    'div' => array(
+      'title' => t('div — Generic flow container'),
+      'summary' => t('The field output will be wrapped in a div tag.'),
+      'tag' => 'div',
+    ),
+    'em' => array(
+      'title' => t('em — Stress emphasis'),
+      'summary' => t('The field output will be wrapped in a em tag.'),
+      'tag' => 'div',
+    ),
+    'h1' => array(
+      'title' => t('h1 — First-level section heading'),
+      'summary' => t('The field output will be wrapped in a h1 tag.'),
+      'tag' => 'h1',
+    ),
+    'h2' => array(
+      'title' => t('h2 — Second-level section heading'),
+      'summary' => t('The field output will be wrapped in a h2 tag.'),
+      'tag' => 'h2',
+    ),
+    'h3' => array(
+      'title' => t('h3 — Third-level section heading'),
+      'summary' => t('The field output will be wrapped in a h3 tag.'),
+      'tag' => 'h3',
+    ),
+    'h4' => array(
+      'title' => t('h4 — Fourth-level section heading'),
+      'summary' => t('The field output will be wrapped in a h4 tag.'),
+      'tag' => 'h4',
+    ),
+    'h5' => array(
+      'title' => t('h5 — Fifth-level section heading'),
+      'summary' => t('The field output will be wrapped in a h5 tag.'),
+      'tag' => 'h5',
+    ),
+    'h6' => array(
+      'title' => t('h6 — Sixth-level section heading'),
+      'summary' => t('The field output will be wrapped in a h6 tag.'),
+      'tag' => 'h6',
+    ),
+    'i' => array(
+      'title' => t('i — Italic'),
+      'summary' => t('The field output will be wrapped in a i tag.'),
+      'tag' => 'i',
+    ),
+    'p' => array(
+      'title' => t('p — Basic paragraph'),
+      'summary' => t('The field output will be wrapped in a p tag.'),
+      'tag' => 'p',
+    ),
+    'pre' => array(
+      'title' => t('pre — Block of preformatted text'),
+      'summary' => t('The field output will be wrapped in a pre tag.'),
+      'tag' => 'pre',
+    ),
+    's' => array(
+      'title' => t('s — Inaccurate text'),
+      'summary' => t('The field output will be wrapped in a s tag.'),
+      'tag' => 's',
+    ),
+    'section' => array(
+      'title' => t('section — Generic document or application section'),
+      'summary' => t('The field output will be wrapped in a section tag.'),
+      'tag' => 'section',
+    ),
+    'small' => array(
+      'title' => t('small — Side comment'),
+      'summary' => t('The field output will be wrapped in a small tag.'),
+      'tag' => 'small',
+    ),
+    'span' => array(
+      'title' => t('span — Generic phrasing container'),
+      'summary' => t('The field output will be wrapped in a span tag.'),
+      'tag' => 'span',
+    ),
+    'strong' => array(
+      'title' => t('strong — Importance'),
+      'summary' => t('The field output will be wrapped in a strong tag.'),
+      'tag' => 'strong',
+    ),
+    'sub' => array(
+      'title' => t('sub — Subscript'),
+      'summary' => t('The field output will be wrapped in a sub tag.'),
+      'tag' => 'sub',
+    ),
+    'sup' => array(
+      'title' => t('sup — Superscript'),
+      'summary' => t('The field output will be wrapped in a sup tag.'),
+      'tag' => 'sup',
+    ),
+  );
+}

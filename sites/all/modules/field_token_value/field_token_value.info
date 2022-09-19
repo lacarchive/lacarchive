@@ -1,0 +1,12 @@
+name = Field Token Value
+description = Provides a field allowing the value to be set using a string containing tokens.
+core = 7.x
+
+dependencies[] = token
+
+; Information added by Drupal.org packaging script on 2017-08-24
+version = "7.x-1.1"
+core = "7.x"
+project = "field_token_value"
+datestamp = "1503548947"
+

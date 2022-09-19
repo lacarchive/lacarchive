@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * @file
+ * Install file for the Field Token Value module.
+ */
+
+/**
+ * Implements hook_field_schema().
+ */
+function field_token_value_field_schema($field) {
+  $columns = array(
+    'value' => array(
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => FALSE,
+    ),
+  );
+  return array(
+    'columns' => $columns,
+  );
+}
