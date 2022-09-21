@@ -42,16 +42,21 @@
 */
 function laca_tokens_alter(&$replacements, $context){
   
-  // If no artists are specified for an Item, its reference number should be letters from the title:
   if ($context['type'] == 'node' && !empty($context['data']['node'])) {
     $node = $context['data']['node'];
     $title = $node->title;
-
+    
     $family = $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']];
     if ($family == '') {
       $family = $title;
       $family = preg_replace('/[^a-zA-Z0-9]/','', $family);
     }
-    $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']] = strtoupper(substr($family,0,2)); 
+
+    // If no artists are specified for an Item, its reference number should be letters from the title:
+    $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']] = strtoupper(substr($family,0,2));
+
+    // Add a period to the end of the location part of the reference number:
+    $replacements[$context['tokens']['node:field-lib-location:field_item_key']] .= '.';
+
   }
 }
