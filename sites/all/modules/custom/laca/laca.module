@@ -2,61 +2,62 @@
 /**
  * Implements hook_token_info().
  */
-// function laca_token_info() {
+function laca_token_info() {
 
-//     $node_tokens['reference_number'] =  array(
-//       'name' => t("LACA Reference Number"),
-//       'description' => t("Logic to display node title on items with multiple authors"),
-//     );
+    $node_tokens['reference_number'] =  array(
+      'name' => t("LACA Reference Number"),
+      'description' => t("Logic to display node title on items with multiple authors"),
+    );
 
-//     return array(
-//       'tokens' => array(
-//         'node' => $node_tokens,
-//       ),
-//     );
-// }
+    return array(
+      'tokens' => array(
+        'node' => $node_tokens,
+      ),
+    );
+}
 
 /**
  * Implements hook_tokens().
  */
-// function laca_tokens($type, $tokens, array $data = array(), array $options = array()) {
-//   $replacements = array();
+function laca_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
 
-//   // Check if token type is node
-//   if($type == 'node'){
-//     $node = $data['node'];
-//     foreach ($tokens as $name => $original) {
-//       switch ($name) {
-//         case 'reference_number':
-//           $replacements[$original] = 'RN';
-//           break;
-//       }
-//     }
-//   }
-//   return $replacements;
-// }
+  // Check if token type is node
+  if($type == 'node'){
+    $node = $data['node'];
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'reference_number':
+          $reference_number = '';
+          $node_wrapper = entity_metadata_wrapper('node', $node);
 
+          // LIBRARY LOCATION (FORMAT):
+          $lib_location_term = $node_wrapper->field_lib_location->value();
 
-/**
-* Implements hook_tokens_alter().
-*/
-function laca_tokens_alter(&$replacements, $context){
-  
-  if ($context['type'] == 'node' && !empty($context['data']['node'])) {
-    $node = $context['data']['node'];
-    $title = $node->title;
-    
-    $family = $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']];
-    if ($family == '') {
-      $family = $title;
-      $family = preg_replace('/[^a-zA-Z0-9]/','', $family);
+          if (isset($lib_location_term)) {
+            $lib_location = field_get_items('taxonomy_term', $lib_location_term, 'field_item_key');
+            $reference_number .= $lib_location[0]['value'] . '.';
+          }
+
+          // NODE ID:
+          $reference_number .= $node->nid . '.';
+
+          // ARTIST (OR TITLE) ABBR:
+          $artist_wrapper = $node_wrapper->field_artist_name_ref->value();
+          if (isset($artist_wrapper[0])) {
+            $artist = field_get_items('node', $artist_wrapper[0], 'field_artist_name');
+            $artist = preg_replace('/[^a-zA-Z0-9]/', '', $artist[0]['safe']['family']);
+            $artist = strtoupper(substr($artist,0,2));
+            $reference_number .= $artist;
+          }
+          else {
+            $reference_number .= strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $node->title) , 0, 2));
+          }
+
+          $replacements[$original] = $reference_number;
+          break;
+      }
     }
-
-    // If no artists are specified for an Item, its reference number should be letters from the title:
-    $replacements[$context['tokens']['field-artist-name-ref:0:field-artist-name:family']] = strtoupper(substr($family,0,2));
-
-    // Add a period to the end of the location part of the reference number:
-    $replacements[$context['tokens']['node:field-lib-location:field_item_key']] .= '.';
-
   }
+  return $replacements;
 }

@@ -1,4 +1,4 @@
 name = LACA
-description = Custom functionality for the LACA website by <a href="https://abstractpenguin.com">Andrew Chernauskas</a>
+description = Custom functionality for LACA to render reference numbers by <a href="https://abstractpenguin.com">Andrew Chernauskas</a>.
 core = 7.x
 dependencies[] = token
