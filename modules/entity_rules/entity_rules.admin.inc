@@ -364,6 +364,7 @@ function theme_entity_rules_bundle_rules_form($variables) {
   $rows = array();
   $output = '';
   // Iterate over each element in our $form[$setting_var_name] array.
+  $form['settings'] = array($form['settings']);
   foreach (element_children($form['settings']) as $id) {
     if (isset($form['settings'][$id]['false_msg'])) {
       $have_false_msg = TRUE;
