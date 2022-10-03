@@ -1,0 +1,12 @@
+diff --git a/entity_rules.admin.inc b/entity_rules.admin.inc
+index 443a55f..987e3fc 100644
+--- a/entity_rules.admin.inc
++++ b/entity_rules.admin.inc
+@@ -364,6 +364,7 @@ function theme_entity_rules_bundle_rules_form($variables) {
+   $rows = array();
+   $output = '';
+   // Iterate over each element in our $form[$setting_var_name] array.
++  $form['settings'] = array($form['settings']);
+   foreach (element_children($form['settings']) as $id) {
+     if (isset($form['settings'][$id]['false_msg'])) {
+       $have_false_msg = TRUE;
