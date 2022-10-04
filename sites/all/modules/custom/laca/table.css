@@ -1,0 +1,24 @@
+table, thead, tbody, tr, th, td {
+  border: none;
+}
+
+tbody tr {
+  border-top: none;
+}
+
+thead tr {
+  background-color: transparent;
+}
+
+tr.info, tr.even, tr:nth-child(2n+2) {
+  background-color: transparent;
+}
+
+tr.even, tr.odd {
+  border-bottom: none;
+}
+
+tr.even td.active,
+tr.odd td.active {
+  background-color: transparent;
+}

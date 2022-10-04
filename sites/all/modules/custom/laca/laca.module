@@ -1,5 +1,12 @@
 <?php
 /**
+ * Implements hook_page_build().
+ */
+function laca_page_build(&$page) {
+  drupal_add_css(drupal_get_path('module', 'laca').'/table.css', array('group' => CSS_THEME, 'weight' => 115));
+}
+
+/**
  * Implements hook_token_info().
  */
 function laca_token_info() {
