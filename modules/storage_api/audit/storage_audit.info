@@ -5,9 +5,9 @@ dependencies[] = storage
 core = 7.x
 files[] = storage_audit.test
 
-; Information added by Drupal.org packaging script on 2015-05-27
-version = "7.x-1.8"
+; Information added by Drupal.org packaging script on 2018-01-11
+version = "7.x-1.8+93-dev"
 core = "7.x"
 project = "storage_api"
-datestamp = "1432746185"
+datestamp = "1515642191"
 

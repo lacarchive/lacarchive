@@ -1,9 +1,10 @@
 name = "Storage"
 description = "Provides an advanced API for managed file storage and serving."
 package = "Storage API"
+php = 5.4
 core = 7.x
 files[] = storage.module
-files[] = storage.test
+files[] = tests/storage.test
 files[] = service.inc
 files[] = container.inc
 files[] = class.inc
@@ -15,12 +16,13 @@ files[] = services/fs.inc
 files[] = services/ftp.inc
 files[] = services/rackspace.inc
 files[] = services/s3.inc
+files[] = services/google.inc
 
 configure = admin/structure/storage
 
-; Information added by Drupal.org packaging script on 2015-05-27
-version = "7.x-1.8"
+; Information added by Drupal.org packaging script on 2018-01-11
+version = "7.x-1.8+93-dev"
 core = "7.x"
 project = "storage_api"
-datestamp = "1432746185"
+datestamp = "1515642191"
 

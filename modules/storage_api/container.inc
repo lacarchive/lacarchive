@@ -4,14 +4,49 @@
  * @file
  * Container class file for Storage API.
  */
+
 abstract class StorageContainer {
 
+  /**
+   * Container ID number.
+   * @var int
+   */
   public $container_id;
+
+  /**
+   * Service ID number.
+   * @var int
+   */
   public $service_id;
+
+  /**
+   * Container name.
+   * @var string
+   */
   public $name;
+
+  /**
+   * Flag to determine access control is on or of for a container.
+   * @var bool
+   */
   public $access_control;
+
+  /**
+   * Flag to determine if the container is external or not.
+   * @var bool
+   */
   public $external;
+
+  /**
+   * Current status of the container.
+   * @var string
+   */
   public $status;
+
+  /**
+   * Array of settings for a container.
+   * @var array
+   */
   public $settings;
 
   public function __construct(array $fields) {
@@ -27,16 +62,27 @@ abstract class StorageContainer {
     return storage_service_load($this->service_id);
   }
 
+  /**
+   * Count the number of storage instances for a the current container.
+   *
+   * @return int
+   */
   public function count() {
 
     return db_select('storage_instance')
-        ->condition('container_id', $this->container_id)
-        ->isNotNull('file_id')
-        ->countQuery()
-        ->execute()
-        ->fetchField();
+      ->condition('container_id', $this->container_id)
+      ->isNotNull('file_id')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
   }
 
+  /**
+   * Return the file size of the entire container, summing all file sizes.
+   *
+   * @param bool $format
+   * @return int|string
+   */
   public function size($format = FALSE) {
 
     $query = db_select('storage_instance');
@@ -44,12 +90,17 @@ abstract class StorageContainer {
     $query->addExpression('SUM(storage_file.size)', 'size');
 
     $size = (int) $query->condition('container_id', $this->container_id)
-        ->execute()
-        ->fetchField();
+      ->execute()
+      ->fetchField();
 
     return $format ? storage_format_byte_count($size) : $size;
   }
 
+  /**
+   * Return the status of the current container.
+   *
+   * @return string
+   */
   public function status() {
 
     switch ($this->status) {
@@ -67,33 +118,35 @@ abstract class StorageContainer {
     }
   }
 
+  /**
+   * Creates an htaccess file in the container.
+   * @throws \StorageException
+   */
   public function htaccessCreate() {
 
     if (!function_exists('file_htaccess_lines')) {
-      $msg = "Unable to create .htaccess file before updating to latest Drupal Core";
-      watchdog('storage', $msg, array(), WATCHDOG_ERROR);
+      $msg = 'Unable to create .htaccess file before updating to latest Drupal Core';
+      watchdog('storage', $msg, [], WATCHDOG_ERROR);
       throw new StorageException(t($msg));
     }
     $lines = file_htaccess_lines($this->access_control);
     if (!$this->access_control) {
-      $lines .= <<<EOF
-
-<IfModule mod_headers.c>
-  Header set Content-Disposition "attachment"
-</IfModule>
-EOF;
+      $lines .= "\n";
+      $lines .= '<IfModule mod_headers.c>
+      Header set Content-Disposition "attachment"
+      </IfModule>';
     }
 
     $temp_uri = new StorageTempURI();
     file_put_contents($temp_uri, $lines);
 
-    $storage = new Storage(array('filename' => '.htaccess'));
+    $storage = new Storage(['filename' => '.htaccess']);
 
     try {
       $this->serviceInstanceCreate($storage, $temp_uri);
     }
     catch (StorageException $e) {
-      
+
     };
   }
 
@@ -101,7 +154,7 @@ EOF;
    * Creates a storage container.
    *
    * @throws StorageException
-   *   When it wasn't possible to create the container.
+   *   When it was not possible to create the container.
    */
   public function create($already_exists = FALSE) {
 
@@ -111,8 +164,8 @@ EOF;
       }
       catch (StorageException $e) {
         $msg = 'Failed to create storage container @container.';
-        watchdog('storage', $msg, array('@container' => $this->name()), WATCHDOG_ERROR);
-        throw new StorageException(t($msg, array('@container' => $this->name())));
+        watchdog('storage', $msg, ['@container' => $this->name()], WATCHDOG_ERROR);
+        throw new StorageException(t($msg, ['@container' => $this->name()]));
       }
     }
 
@@ -127,32 +180,53 @@ EOF;
     }
 
     $msg = 'Storage container !container has been created.';
-    drupal_set_message(t($msg, array('!container' => $this->link())));
-    watchdog('storage', $msg, array('!container' => check_plain($this->name())), WATCHDOG_NOTICE, l(t('view'), $this->path()));
+    drupal_set_message(t($msg, ['!container' => $this->link()]));
+    watchdog('storage', $msg, ['!container' => check_plain($this->name())], WATCHDOG_NOTICE, l(t('view'), $this->path()));
   }
 
+  /**
+   * Return the name of the service.
+   *
+   * @return string
+   */
   public function name() {
     return $this->service()->name . ($this->name ? (' - ' . $this->name) : '');
   }
 
+  /**
+   * Returns the path to the admin UI for the current container.
+   * @return string
+   */
   public function path() {
     return 'admin/structure/storage/container/' . $this->container_id;
   }
 
+  /**
+   * Returns an HTML formatted link.
+   *
+   * @return mixed
+   */
   public function link() {
     return l($this->name(), $this->path());
   }
 
+  /**
+   * Update the container information of the current container.
+   */
   public function update() {
     drupal_write_record('storage_container', $this, 'container_id');
   }
 
+  /**
+   * Flush Serving Container.
+   * @todo needs more investigation.
+   */
   public function flushServingContainer() {
 
     $selector_subquery = db_select('storage_class_container');
     $selector_subquery->join('storage_selector', NULL, 'storage_class_container.class_id = storage_selector.class_id');
 
-    $selector_subquery->fields('storage_selector', array('selector_id'))
+    $selector_subquery->fields('storage_selector', ['selector_id'])
       ->condition('storage_class_container.container_id', $this->container_id);
 
     db_update('storage')
@@ -163,6 +237,14 @@ EOF;
     cache_clear_all();
   }
 
+  /**
+   *
+   *
+   * @param \Storage $storage
+   * @param string $uri
+   * @return mixed
+   * @throws \StorageException
+   */
   public function instanceCreate(Storage $storage, $uri) {
 
     if ($this->status == STORAGE_CONTAINER_STATUS_SUSPENDED || $this->external) {
@@ -171,11 +253,11 @@ EOF;
 
     $reference = $this->serviceInstanceCreate($storage, $uri);
 
-    $instance = array(
+    $instance = [
       'container_id' => $this->container_id,
       'file_id' => $storage->file_id,
       'reference' => $reference,
-    );
+    ];
 
     drupal_write_record('storage_instance', $instance);
 
@@ -198,11 +280,11 @@ EOF;
 
     $reference = $this->serviceInstanceCopy($storage, $source_container);
 
-    $instance = array(
+    $instance = [
       'container_id' => $this->container_id,
       'file_id' => $storage->file_id,
       'reference' => $reference,
-    );
+    ];
 
     drupal_write_record('storage_instance', $instance);
 
@@ -219,12 +301,12 @@ EOF;
 
     // Find instances of the storage's file in other containers of the same type
     // that are in the storage's class.
-    $query = db_select('storage_instance', NULL, array('fetch' => PDO::FETCH_ASSOC));
+    $query = db_select('storage_instance', NULL, ['fetch' => PDO::FETCH_ASSOC]);
     $query->join('storage_container', NULL, 'storage_instance.container_id = storage_container.container_id');
     $query->join('storage_class_container', NULL, 'storage_instance.container_id = storage_class_container.container_id');
     $query->join('storage_selector', NULL, 'storage_class_container.class_id = storage_selector.class_id');
 
-    $result = $query->fields('storage_instance', array('container_id', 'reference'))
+    $result = $query->fields('storage_instance', ['container_id', 'reference'])
       ->condition('storage_instance.file_id', $storage->file_id)
       ->condition('storage_instance.container_id', $this->container_id, '<>')
       ->condition('storage_container.service_id', $this->service_id)
@@ -242,6 +324,7 @@ EOF;
         $this->instanceCopy($storage, $source_container);
       }
       catch (StorageException $e) {
+        watchdog('storage', t('Instance copy failed.') . ' ' . $e, [], WATCHDOG_ERROR);
         continue;
       }
 
@@ -256,6 +339,8 @@ EOF;
    *
    * @param $storage
    *   The storage that there must be an instance of.
+   *
+   * @return bool
    *
    * @throws StorageException
    *   When it isn't possible to ensure that the instance exists.
@@ -294,9 +379,9 @@ EOF;
         watchdog(
           'storage_api',
           'File not found to be uploaded (!uri). Removing storage record',
-          array(
+          [
             '!uri' => $uri,
-          ),
+          ],
           WATCHDOG_ERROR
         );
         $storage->remove(TRUE);
@@ -309,11 +394,11 @@ EOF;
   public function instanceExists(Storage $storage) {
 
     return db_select('storage_instance')
-        ->fields('storage_instance', array('reference'))
-        ->condition('file_id', $storage->file_id)
-        ->condition('container_id', $this->container_id)
-        ->execute()
-        ->fetchField();
+      ->fields('storage_instance', ['reference'])
+      ->condition('file_id', $storage->file_id)
+      ->condition('container_id', $this->container_id)
+      ->execute()
+      ->fetchField();
   }
 
   /**
@@ -331,7 +416,7 @@ EOF;
 
     // Find other storages that use the same file.
     $storage_ids = db_select('storage')
-      ->fields('storage', array('storage_id'))
+      ->fields('storage', ['storage_id'])
       ->condition('storage.file_id', $storage->file_id)
       ->condition('storage.storage_id', $storage->storage_id, '<>')
       ->execute()
@@ -416,11 +501,16 @@ EOF;
     }
   }
 
+  /**
+   * Returns all classes configured for the current container.
+   *
+   * @return array
+   */
   public function classes() {
-    $classes = array();
+    $classes = [];
 
-    $result = db_select('storage_class_container', NULL, array('fetch' => PDO::FETCH_ASSOC))
-      ->fields('storage_class_container', array('class_id'))
+    $result = db_select('storage_class_container', NULL, ['fetch' => PDO::FETCH_ASSOC])
+      ->fields('storage_class_container', ['class_id'])
       ->condition('container_id', $this->container_id)
       ->orderBy('class_id')
       ->execute();
@@ -433,7 +523,7 @@ EOF;
   }
 
   /**
-   * Delete container.
+   * Delete the current container.
    */
   public function delete() {
 
@@ -453,7 +543,7 @@ EOF;
   }
 
   /**
-   * Destroy container.
+   * Destroy the current container.
    */
   public function destroy() {
 
@@ -463,7 +553,7 @@ EOF;
     }
     catch (StorageException $e) {
       db_update('storage_container')
-        ->fields(array('status' => STORAGE_CONTAINER_STATUS_DESTROY))
+        ->fields(['status' => STORAGE_CONTAINER_STATUS_DESTROY])
         ->condition('container_id', $this->container_id)
         ->execute();
     }
@@ -481,17 +571,17 @@ EOF;
    *
    * @param $reference
    *   The reference to look for.
-   * @return
+   * @return bool
    *   Whether the reference exists in the container.
    */
   public function referenceExists($reference) {
 
     $exists = (bool) db_select('storage_instance')
-        ->condition('container_id', $this->container_id)
-        ->condition('reference', $reference)
-        ->countQuery()
-        ->execute()
-        ->fetchField();
+      ->condition('container_id', $this->container_id)
+      ->condition('reference', $reference)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
 
     if ($exists) {
       return TRUE;
@@ -505,7 +595,7 @@ EOF;
    *
    * @param $filename
    *   Desired filename.
-   * @return
+   * @return string
    *   Unique filename.
    */
   public function uniqueFilename($filename) {
@@ -527,13 +617,18 @@ EOF;
 
       do {
         $filename = $name . '_' . $count++ . $ext;
-      }
-      while ($this->referenceExists($filename));
+      } while ($this->referenceExists($filename));
     }
 
     return $filename;
   }
 
+  /**
+   * Returns a formatted string for logging information about the current
+   * container.
+   *
+   * @return string
+   */
   public function logInfo() {
 
     $info = 'container: ' . check_plain($this->name()) . ', <br />';
@@ -542,7 +637,9 @@ EOF;
   }
 
   /**
-   * Default implementations.
+   * Default implementations of a service manifest.
+   *
+   * @return array
    */
   public function serviceManifest(array &$sandbox, &$finished) {
 
@@ -551,7 +648,7 @@ EOF;
     }
 
     $count = 100;
-    $manifest = array();
+    $manifest = [];
 
     while ($count-- && ($reference = array_shift($sandbox['references']))) {
 
@@ -596,10 +693,12 @@ EOF;
   }
 
   /**
-   * Get information about an instance.
+   * Get information about an instance and return it as an array.
    *
    * @param $reference
    *   The reference of the instance the be examined.
+   *
+   * @return array
    *
    * @throws StorageException
    *   When it isn't possible to get information about the instance.
@@ -612,11 +711,11 @@ EOF;
       throw new StorageException();
     }
 
-    $info = array(
+    $info = [
       'uri' => $uri,
       'size' => $stat['size'],
       'whirlpool' => hash_file('whirlpool', $uri, TRUE),
-    );
+    ];
 
     return $info;
   }
@@ -633,34 +732,60 @@ EOF;
   }
 
   /**
-   * Optional implementations.
+   * Optional implementation.
+   *
+   * @return array
    */
   public function serviceSettingsDefault() {
-    return array();
+    return [];
   }
 
+  /**
+   * Optional implementation.
+   */
   public function servicePostCreate() {
-    
+
   }
 
+  /**
+   * Optional implementation.
+   */
   public function serviceUpdate() {
-    
+
   }
 
+  /**
+   * Optional implementation.
+   */
   public function serviceMaintenance() {
-    
+
   }
 
+  /**
+   * Optional implementation.
+   */
   public function serviceListReferences() {
     throw new StorageException();
   }
 
+  /**
+   * Optional implementation.
+   *
+   * @param $storage
+   * @param $source_container
+   */
   public function serviceInstanceCopy(Storage $storage, StorageContainerInterface $source_container) {
-    
+
   }
 
 }
 
+/**
+ * Interface StorageContainerInterface
+ *
+ * All of the methods that must be included in a class for creating container
+ * services.
+ */
 interface StorageContainerInterface {
 
   public function __construct(array $fields);
@@ -717,10 +842,24 @@ interface StorageContainerInterface {
 
   public function serviceSettingsValidate($already_exists);
 
+  /**
+   * Perform additional tasks when a container service is created. This augments
+   * the Storage core processes. This is useful for performing service specific
+   * operations.
+   *
+   * @return mixed
+   */
   public function serviceCreate();
 
   public function servicePostCreate();
 
+  /**
+   * Add additional data about a service beyond the standard information fields.
+   * This information is used on the container view page. This does not override
+   * the defaults but adds to the defaults.
+   *
+   * @return array
+   */
   public function serviceInfo();
 
   public function serviceUpdate();
